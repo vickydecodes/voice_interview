@@ -1,0 +1,168 @@
+# =================================================================
+# AI Interview Simulator - Comprehensive .gitignore
+# =================================================================
+
+# -----------------------------------------------------------------
+# Environment Variables & Secrets (CRITICAL: Never commit secrets!)
+# -----------------------------------------------------------------
+.env
+.env.*
+*.env
+*.env.local
+*.env.development.local
+*.env.test.local
+*.env.production.local
+backend/.env
+frontend/.env
+
+# Explicitly allow example templates
+!.env.example
+!backend/.env.example
+!frontend/.env.example
+
+# Certificates & Private Keys
+*.pem
+*.key
+*.cert
+*.crt
+*.pfx
+
+# -----------------------------------------------------------------
+# Python & Virtual Environments
+# -----------------------------------------------------------------
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+
+# Virtual Environment Folders
+.venv/
+venv/
+ENV/
+env/
+backend/.venv/
+backend/venv/
+*.venv/
+*.venv
+
+# Python build artifacts & distribution
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# PyInstaller / PyPy
+*.manifest
+*.spec
+
+# Python unit test & coverage
+htmlcov/
+.tox/
+.nox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.py,cover
+.hypothesis/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# -----------------------------------------------------------------
+# Node.js & Frontend
+# -----------------------------------------------------------------
+node_modules/
+frontend/node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# Vite / Frontend build output
+frontend/dist/
+frontend/dist-ssr/
+dist/
+dist-ssr/
+*.local
+
+# Cache directories
+.eslintcache
+.stylelintcache
+.parcel-cache
+
+# -----------------------------------------------------------------
+# Internal Build & Setup Markers
+# -----------------------------------------------------------------
+*.sha256
+*.marker
+.requirements.sha256
+.installed.marker
+backend/.venv/.requirements.sha256
+frontend/node_modules/.installed.marker
+frontend/node_modules/.installed.sha256
+
+# -----------------------------------------------------------------
+# Logs & Temporary Files
+# -----------------------------------------------------------------
+logs/
+*.log
+tmp/
+temp/
+scratch/
+uploads/
+*.tmp
+
+# -----------------------------------------------------------------
+# Operating System & IDE Files
+# -----------------------------------------------------------------
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+.Spotlight-V100
+.Trashes
+
+# Windows
+Thumbs.db
+Thumbs.db:encryptable
+ehthumbs.db
+ehthumbs_vista.db
+[Dd]esktop.ini
+$RECYCLE.BIN/
+
+# Visual Studio Code
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+
+# JetBrains IDEs (PyCharm, WebStorm, etc.)
+.idea/
+*.iws
+*.iml
+*.ipr
+
+# Miscellaneous editors
+*.swp
+*.swo
+*~
+*.bak
