@@ -69,14 +69,19 @@ MONGO_STATUS=$("${PYTHON_BIN[@]}" scripts/checker.py check_mongo)
 echo "[1/7] Checking MongoDB connection... $MONGO_STATUS"
 
 # -----------------------------------------------------------------
-# Step 2: Environment Files (.env)
+# Step 2: Network & Environment Configuration (.env)
 # -----------------------------------------------------------------
-echo "[2/7] Checking environment files..."
+echo "[2/7] Detecting local network configuration..."
+LOCAL_IP=$("${PYTHON_BIN[@]}" scripts/checker.py get_ip 2>/dev/null || echo "127.0.0.1")
+echo "      Detected Local Network IP: $LOCAL_IP"
+echo "      Configuring frontend/.env and backend/.env for mobile/LAN access..."
+"${PYTHON_BIN[@]}" scripts/checker.py setup_network_env "$LOCAL_IP" >/dev/null 2>&1
+
 if ! "${PYTHON_BIN[@]}" scripts/checker.py check_env >/dev/null 2>&1; then
   "${PYTHON_BIN[@]}" scripts/checker.py check_env
   exit 1
 fi
-echo "[2/7] Checking environment files... OK (.env configured)"
+echo "[2/7] Checking environment files... OK (configured for http://$LOCAL_IP:8000)"
 
 # Check-Only Flag
 if [ "$CHECK_ONLY" = true ]; then
@@ -84,9 +89,13 @@ if [ "$CHECK_ONLY" = true ]; then
   echo "================================================================"
   echo "[CHECK PASSED] All prerequisites, environment files, and MongoDB"
   echo "connection checks passed successfully!"
+  echo "  Detected LAN IP:   $LOCAL_IP"
+  echo "  Phone Web App:     http://$LOCAL_IP:5173"
+  echo "  Backend API Docs:  http://$LOCAL_IP:8000/docs"
   echo "================================================================"
   exit 0
 fi
+
 
 # -----------------------------------------------------------------
 # Step 3: Backend Setup (backend/.venv)
@@ -154,7 +163,7 @@ if [ -f "backend/.venv/Scripts/python.exe" ]; then
   VENV_BIN="backend/.venv/Scripts/python.exe"
 fi
 
-(cd backend && "$REPO_ROOT/$VENV_BIN" -m uvicorn app.main:app --reload --port 8000) &
+(cd backend && "$REPO_ROOT/$VENV_BIN" -m uvicorn app.main:app --reload --host 0.0.0.0 --port 8000) &
 BACKEND_PID=$!
 FRONTEND_PID=""
 
@@ -186,11 +195,13 @@ echo ""
 echo "================================================================"
 echo "          AI INTERVIEW SIMULATOR READY!"
 echo "================================================================"
-echo "  Frontend Web App:  http://localhost:5173"
-echo "  Backend API Docs:  http://localhost:8000/docs"
+echo "  Local Web App:    http://localhost:5173"
+echo "  Network Web App:  http://$LOCAL_IP:5173  (Open on Phone)"
+echo "  Backend API Docs: http://$LOCAL_IP:8000/docs"
 echo "================================================================"
 echo "Press Ctrl+C to terminate both servers."
 echo ""
+
 
 (cd frontend && npm run dev) &
 FRONTEND_PID=$!

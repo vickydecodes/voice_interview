@@ -133,11 +133,113 @@ def check_env():
         print("================================================================\n", file=sys.stderr)
         sys.exit(1)
 
-    print("OK")
+    # 4. Synchronize detected LAN IP into frontend & backend .env
+    detected_ip = setup_network_env()
+    print(f"OK (configured for {detected_ip})")
+    sys.exit(0)
+
+
+def get_local_ip() -> str:
+    """Detects the primary local LAN IPv4 address (e.g. 192.168.x.x, 10.x.x.x)."""
+    env_ip = os.getenv("HOST_IP") or os.getenv("LOCAL_IP")
+    if env_ip and env_ip.strip():
+        return env_ip.strip()
+
+    # Route-based UDP socket query (no packets actually transmitted)
+    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    try:
+        s.connect(("8.8.8.8", 80))
+        ip = s.getsockname()[0]
+        if ip and not ip.startswith("127."):
+            return ip
+    except Exception:
+        pass
+    finally:
+        s.close()
+
+    try:
+        hostname = socket.gethostname()
+        for ip in socket.gethostbyname_ex(hostname)[2]:
+            if not ip.startswith("127.") and not ip.startswith("169.254."):
+                return ip
+    except Exception:
+        pass
+
+    return "127.0.0.1"
+
+
+def print_ip():
+    """Prints detected local LAN IP to stdout for shell scripts."""
+    print(get_local_ip())
+    sys.exit(0)
+
+
+def setup_network_env(target_ip: str | None = None) -> str:
+    """
+    Configures frontend/.env with VITE_API_URL=http://<IP>:8000
+    and backend/.env with HOST=0.0.0.0 and CORS_ORIGINS including <IP>.
+    """
+    import json
+    ip = target_ip or get_local_ip()
+
+    fe_env = ROOT_DIR / "frontend" / ".env"
+    be_env = ROOT_DIR / "backend" / ".env"
+
+    # 1. Update frontend/.env
+    if fe_env.is_file():
+        fe_content = fe_env.read_text(encoding="utf-8")
+        if re.search(r"^\s*VITE_API_URL\s*=.*", fe_content, flags=re.MULTILINE):
+            fe_content = re.sub(
+                r"^\s*VITE_API_URL\s*=.*",
+                f"VITE_API_URL=http://{ip}:8000",
+                fe_content,
+                flags=re.MULTILINE,
+            )
+        else:
+            fe_content += f"\nVITE_API_URL=http://{ip}:8000\n"
+        fe_env.write_text(fe_content, encoding="utf-8")
+    else:
+        fe_env.write_text(f"# Backend API URL\nVITE_API_URL=http://{ip}:8000\n", encoding="utf-8")
+
+    # 2. Update backend/.env
+    if be_env.is_file():
+        be_content = be_env.read_text(encoding="utf-8")
+        if re.search(r"^\s*HOST\s*=.*", be_content, flags=re.MULTILINE):
+            be_content = re.sub(r"^\s*HOST\s*=.*", "HOST=0.0.0.0", be_content, flags=re.MULTILINE)
+        else:
+            be_content += "\nHOST=0.0.0.0\n"
+
+        cors_match = re.search(r"^\s*CORS_ORIGINS\s*=\s*(.*)", be_content, flags=re.MULTILINE)
+        if cors_match:
+            try:
+                origins = json.loads(cors_match.group(1).split("#")[0].strip())
+                if isinstance(origins, list):
+                    for new_orig in [f"http://{ip}:5173", f"http://{ip}:8000", f"http://{ip}:3000"]:
+                        if new_orig not in origins:
+                            origins.append(new_orig)
+                    be_content = re.sub(
+                        r"^\s*CORS_ORIGINS\s*=.*",
+                        f"CORS_ORIGINS={json.dumps(origins)}",
+                        be_content,
+                        flags=re.MULTILINE,
+                    )
+            except Exception:
+                pass
+        be_env.write_text(be_content, encoding="utf-8")
+
+    return ip
+
+
+def cmd_setup_network_env():
+    """CLI handler for setup_network_env command."""
+    target_ip = sys.argv[2].strip() if len(sys.argv) > 2 else None
+    ip = setup_network_env(target_ip)
+    print(f"OK ({ip})")
     sys.exit(0)
 
 
 def check_mongo():
+
     """
     Reads MONGO_URI from backend/.env (default mongodb://localhost:27017)
     and tests connection with a 3-second server selection timeout.
@@ -329,7 +431,7 @@ def poll_health():
 
 if __name__ == "__main__":
     if len(sys.argv) < 2:
-        print("Usage: python checker.py [python_version|check_node|check_env|check_mongo|backend_status|touch_backend_marker|frontend_status|touch_frontend_marker|check_ports|poll_health]")
+        print("Usage: python checker.py [python_version|check_node|check_env|check_mongo|get_ip|setup_network_env|backend_status|touch_backend_marker|frontend_status|touch_frontend_marker|check_ports|poll_health]")
         sys.exit(1)
 
     cmd = sys.argv[1]
@@ -338,6 +440,8 @@ if __name__ == "__main__":
         "check_node": check_node,
         "check_env": check_env,
         "check_mongo": check_mongo,
+        "get_ip": print_ip,
+        "setup_network_env": cmd_setup_network_env,
         "backend_status": backend_status,
         "touch_backend_marker": touch_backend_marker,
         "frontend_status": frontend_status,
@@ -345,6 +449,7 @@ if __name__ == "__main__":
         "check_ports": check_ports,
         "poll_health": poll_health,
     }
+
 
     if cmd in dispatch:
         dispatch[cmd]()

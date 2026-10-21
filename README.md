@@ -81,7 +81,10 @@ chmod +x run.sh
    - Verifies **Python 3.11+** numerically (`python3` then `python` on Unix; `py -3` then `python` on Windows).
    - Verifies **Node.js 18+** and **npm** are present.
    - Tests **MongoDB** connection using `MONGO_URI` from `backend/.env` (default `mongodb://localhost:27017`) with a 3-second server selection timeout.
-2. **Environment Configuration**:
+2. **Network Detection & Environment Configuration (`ipconfig`)**:
+   - Runs `ipconfig` (Windows) or routing check to inspect network adapters and determine your local LAN IPv4 address (e.g. `192.168.29.100`).
+   - Automatically synchronizes `frontend/.env` with `VITE_API_URL=http://<YOUR_IP>:8000` so mobile phones or devices on the same Wi-Fi reach the backend seamlessly.
+   - Automatically updates `backend/.env` with `HOST=0.0.0.0` and adds LAN origins to `CORS_ORIGINS`.
    - If `backend/.env` is missing, copies `backend/.env.example` and automatically generates a secure, random `JWT_SECRET`.
    - If `frontend/.env` is missing, copies `frontend/.env.example`.
    - Validates that `OPENROUTER_API_KEY` is configured and not an empty placeholder.
@@ -94,15 +97,46 @@ chmod +x run.sh
 5. **Port Checks**:
    - Verifies ports `8000` (Backend API) and `5173` (Frontend Dev Server) are free before launching. If either port is occupied, reports the busy port and exits cleanly.
 6. **Server Startup**:
-   - Backend: Starts `uvicorn app.main:app --reload --port 8000` from `/backend` using the venv's Python.
-   - Frontend: Runs `npm run dev` from `/frontend`.
+   - Backend: Starts `uvicorn app.main:app --reload --host 0.0.0.0 --port 8000` from `/backend` using the venv's Python so it listens across all network interfaces.
+   - Frontend: Runs `npm run dev` from `/frontend` with Vite `--host` enabled.
    - On Windows (`run.bat`): Spawns backend and frontend each in its own dedicated command window.
    - On Unix (`run.sh`): Runs backend in the background with clean `SIGINT`/`SIGTERM`/`EXIT` traps and runs frontend in the foreground.
 7. **Health Wait**:
    - Polls `http://localhost:8000/health` for up to 20 seconds.
    - Prints the final success banner with clickable links:
-     - **Frontend Web App**: [http://localhost:5173](http://localhost:5173)
-     - **Backend API Docs**: [http://localhost:8000/docs](http://localhost:8000/docs)
+     - **Local Web App**: [http://localhost:5173](http://localhost:5173)
+     - **Network Web App (Phone / LAN)**: `http://<YOUR_IP>:5173`
+     - **Backend API Docs**: `http://<YOUR_IP>:8000/docs`
+
+---
+
+## 📱 Accessing from a Mobile Phone (Same Wi-Fi / LAN)
+
+You can run technical interviews directly from your mobile phone while hosting on your computer:
+
+1. **Connect both devices to the same Wi-Fi network**.
+2. **Launch `run.bat`** (or `./run.sh`):
+   - `run.bat` executes `ipconfig`, detects your machine's local IP (e.g., `192.168.29.100`), and automatically configures `frontend/.env` and `backend/.env`.
+   - The launcher prints your phone access URL at the bottom:
+     ```text
+     ================================================================
+               AI INTERVIEW SIMULATOR READY!
+     ================================================================
+       Local Web App:    http://localhost:5173
+       Network Web App:  http://192.168.29.100:5173  (Open on Phone)
+       Backend API Docs: http://192.168.29.100:8000/docs
+     ================================================================
+     ```
+3. **Open the Network Web App URL** on your phone's browser (e.g. `http://192.168.29.100:5173/resume`).
+4. **Voice & Microphone Notes for Mobile**:
+   - **TTS Voice Output**: Speaks questions out loud automatically on mobile.
+   - **Typed Fallback**: Tap the keyboard icon in the interview session drawer to type responses on your phone.
+   - **Microphone over HTTP on Android Chrome**: Android Chrome restricts the Web Speech API on non-HTTPS origins by default. To enable microphone recognition over HTTP:
+     1. Open Chrome on your phone and go to `chrome://flags/#unsafely-treat-insecure-origin-as-secure`.
+     2. Add `http://192.168.29.100:5173` (replace with your IP).
+     3. Toggle to **Enabled** and tap **Relaunch**.
+     4. Alternatively, use the built-in typed drawer which works instantly without any flags.
+
 
 ---
 
@@ -205,8 +239,10 @@ If you prefer setting up the components manually instead of using `run.bat` or `
 | `GET` | `/companies/{id}` | Retrieve details for a single company | No |
 | `POST` | `/interviews` | Create a new interview session and get AI opening question | Yes (Bearer) |
 | `POST` | `/interviews/{id}/turn` | Submit candidate answer transcript and get AI interviewer follow-up | Yes (Bearer) |
+| `POST` | `/interviews/{id}/complete` | Finalize interview, run AI evaluation, return rating and feedback | Yes (Bearer) |
 | `GET` | `/interviews/{id}` | Fetch interview session state and conversation transcript | Yes (Bearer) |
 | `GET` | `/health` | Service health check | No |
+
 
 ---
 

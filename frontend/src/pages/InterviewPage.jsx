@@ -19,6 +19,10 @@ import {
   ShieldAlert,
   Layers,
   CheckCircle,
+  Award,
+  Check,
+  TrendingUp,
+  ArrowRight,
 } from 'lucide-react';
 
 export const InterviewPage = () => {
@@ -37,6 +41,12 @@ export const InterviewPage = () => {
   const [isMuted, setIsMuted] = useState(false);
   const [isEnded, setIsEnded] = useState(false);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
+
+  // AI Evaluation & Scorecard state
+  const [isEvaluating, setIsEvaluating] = useState(false);
+  const [evaluation, setEvaluation] = useState(null);
+  const [evaluationError, setEvaluationError] = useState(null);
+
 
   // Voice hook
   const {
@@ -79,8 +89,13 @@ export const InterviewPage = () => {
         const data = await interviewsApi.getInterview(id);
         setSession(data);
         setMessages(data.messages || []);
+        if (data.status === 'completed' && data.evaluation) {
+          setEvaluation(data.evaluation);
+          setIsEnded(true);
+        }
 
         // Speak opening greeting once loaded
+
         if (!hasGreetedRef.current && data.messages && data.messages.length > 0) {
           hasGreetedRef.current = true;
           const firstMsg = data.messages[0];
@@ -155,13 +170,40 @@ export const InterviewPage = () => {
     }
   };
 
-  const handleEndInterview = () => {
+  const handleEndInterview = async () => {
     stopListening();
     stopSpeaking();
     setIsEnded(true);
+    setIsEvaluating(true);
+    setEvaluationError(null);
+
+    try {
+      const data = await interviewsApi.completeInterview(id);
+      if (data && data.evaluation) {
+        setEvaluation(data.evaluation);
+        setSession(data);
+      }
+    } catch (err) {
+      console.error('Failed to evaluate interview:', err);
+      setEvaluationError(err.response?.data?.detail || 'Could not generate AI evaluation. Practice metrics recorded.');
+    } finally {
+      setIsEvaluating(false);
+    }
+  };
+
+  const getVerdictStyle = (verdict = '') => {
+    const v = verdict.toLowerCase();
+    if (v.includes('strong hire') || v.includes('hire')) {
+      return 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30';
+    }
+    if (v.includes('lean')) {
+      return 'bg-amber-500/15 text-amber-300 border-amber-500/30';
+    }
+    return 'bg-purple-500/15 text-purple-300 border-purple-500/30';
   };
 
   // Determine avatar visual state
+
   const getAvatarState = () => {
     if (isSpeaking) return 'speaking';
     if (isThinking) return 'thinking';
@@ -302,11 +344,17 @@ export const InterviewPage = () => {
                     clear
                   </button>
                 </div>
-                <p className="line-clamp-3">
-                  {transcript} <span className="text-accent-cyan italic">{interimTranscript}</span>
+                <p className="line-clamp-3 text-gray-200">
+                  {transcript}
+                  {interimTranscript && (
+                    <span className="text-accent-cyan italic">
+                      {transcript ? ` ${interimTranscript}` : interimTranscript}
+                    </span>
+                  )}
                 </p>
               </div>
             )}
+
 
             {/* Controls Bar */}
             <div className="flex items-center gap-4 w-full justify-center">
@@ -395,39 +443,164 @@ export const InterviewPage = () => {
         </div>
       </div>
 
-      {/* Completion Modal */}
+      {/* Completion & Scorecard Modal */}
       {isEnded && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md">
-          <div className="glass-panel rounded-3xl p-8 max-w-md w-full text-center border border-dark-border shadow-2xl animate-in zoom-in-95">
-            <div className="w-14 h-14 rounded-2xl bg-brand-500/15 border border-brand-500/30 flex items-center justify-center text-brand-400 mx-auto mb-4">
-              <CheckCircle className="w-8 h-8" />
-            </div>
-
-            <h3 className="text-xl font-bold text-white mb-1">Interview Completed</h3>
-            <p className="text-xs text-dark-muted mb-6">
-              You practiced with <strong>{compName}</strong> across {messages.length} conversational turns.
-            </p>
-
-            <div className="grid grid-cols-2 gap-3 mb-6">
-              <div className="glass-card rounded-xl p-3 text-center">
-                <span className="text-[10px] text-dark-muted font-bold uppercase block">Duration</span>
-                <span className="text-sm font-mono font-bold text-white">{formatTimer(elapsedSeconds)}</span>
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md overflow-y-auto">
+          {isEvaluating ? (
+            <div className="glass-panel rounded-3xl p-8 max-w-md w-full text-center border border-dark-border shadow-2xl animate-in zoom-in-95">
+              <div className="relative w-16 h-16 mx-auto mb-4">
+                <div className="absolute inset-0 rounded-2xl bg-brand-500/20 animate-ping" />
+                <div className="relative w-16 h-16 rounded-2xl bg-brand-500/15 border border-brand-500/30 flex items-center justify-center text-brand-400">
+                  <Sparkles className="w-8 h-8 animate-spin duration-1000" />
+                </div>
               </div>
-              <div className="glass-card rounded-xl p-3 text-center">
-                <span className="text-[10px] text-dark-muted font-bold uppercase block">Total Turns</span>
-                <span className="text-sm font-mono font-bold text-white">{messages.length}</span>
-              </div>
+              <h3 className="text-lg font-bold text-white mb-1.5">Generating AI Evaluation...</h3>
+              <p className="text-xs text-dark-muted leading-relaxed">
+                Evaluating your answers, technical depth, and communication against <strong>{compName}</strong>'s hiring bar.
+              </p>
             </div>
+          ) : evaluation ? (
+            <div className="glass-panel rounded-3xl p-6 sm:p-7 max-w-lg w-full text-left border border-dark-border shadow-2xl animate-in zoom-in-95 my-auto">
+              {/* Header */}
+              <div className="flex items-center justify-between pb-4 border-b border-dark-border/80">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-dark-elevated border border-dark-border flex items-center justify-center font-bold text-white text-xs">
+                    {company.initial || compName[0]}
+                  </div>
+                  <div>
+                    <h3 className="text-sm sm:text-base font-bold text-white">{compName} Scorecard</h3>
+                    <p className="text-[11px] text-dark-muted font-medium">{company.difficulty_level || 'Medium'} Tier Evaluation</p>
+                  </div>
+                </div>
 
-            <button
-              onClick={() => navigate('/companies')}
-              className="w-full py-3 rounded-xl bg-brand-500 hover:bg-brand-400 text-dark-bg font-bold text-xs shadow-lg shadow-brand-500/20 transition-all"
-            >
-              Return to Companies Dashboard
-            </button>
-          </div>
+                <div className={`px-3 py-1 rounded-full text-xs font-bold border flex items-center gap-1.5 ${getVerdictStyle(evaluation.verdict)}`}>
+                  <Award className="w-3.5 h-3.5" />
+                  <span>{evaluation.verdict}</span>
+                </div>
+              </div>
+
+              {/* Overall Score Box */}
+              <div className="my-4 p-4 rounded-2xl bg-gradient-to-r from-dark-elevated to-dark-card border border-dark-border flex items-center justify-between">
+                <div>
+                  <span className="text-[10px] text-dark-muted uppercase font-bold tracking-wider block">Overall Rating</span>
+                  <p className="text-xs text-gray-300 mt-0.5">Performance Score</p>
+                </div>
+                <div className="flex items-baseline gap-1 bg-dark-bg/90 px-4 py-2 rounded-xl border border-brand-500/30 shadow-inner">
+                  <span className="text-2xl sm:text-3xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-brand-300 to-accent-cyan">
+                    {evaluation.rating}
+                  </span>
+                  <span className="text-xs font-semibold text-dark-muted">/ 10</span>
+                </div>
+              </div>
+
+              {/* Feedback Summary Paragraph */}
+              {evaluation.summary && (
+                <div className="mb-4 p-4 rounded-2xl bg-dark-elevated/80 border border-dark-border">
+                  <h4 className="text-[11px] font-bold text-brand-300 uppercase tracking-wider mb-1.5 flex items-center gap-1.5">
+                    <Sparkles className="w-3.5 h-3.5" />
+                    Performance Feedback
+                  </h4>
+                  <p className="text-xs text-gray-200 leading-relaxed">
+                    {evaluation.summary}
+                  </p>
+                </div>
+              )}
+
+              {/* Strengths & Improvements */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
+                {evaluation.strengths && evaluation.strengths.length > 0 && (
+                  <div className="p-3.5 rounded-2xl bg-emerald-500/5 border border-emerald-500/20">
+                    <span className="text-[10px] font-bold text-emerald-400 uppercase tracking-wider block mb-2 flex items-center gap-1">
+                      <Check className="w-3.5 h-3.5" /> Key Strengths
+                    </span>
+                    <ul className="space-y-1.5 text-[11px] text-gray-300">
+                      {evaluation.strengths.map((s, idx) => (
+                        <li key={idx} className="flex items-start gap-1.5">
+                          <span className="text-emerald-400 mt-0.5">•</span>
+                          <span>{s}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
+                {evaluation.improvements && evaluation.improvements.length > 0 && (
+                  <div className="p-3.5 rounded-2xl bg-amber-500/5 border border-amber-500/20">
+                    <span className="text-[10px] font-bold text-amber-400 uppercase tracking-wider block mb-2 flex items-center gap-1">
+                      <TrendingUp className="w-3.5 h-3.5" /> Focus Areas
+                    </span>
+                    <ul className="space-y-1.5 text-[11px] text-gray-300">
+                      {evaluation.improvements.map((imp, idx) => (
+                        <li key={idx} className="flex items-start gap-1.5">
+                          <span className="text-amber-400 mt-0.5">•</span>
+                          <span>{imp}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </div>
+
+              {/* Session Stats Mini Bar */}
+              <div className="grid grid-cols-2 gap-2.5 mb-5 text-center text-xs">
+                <div className="glass-card rounded-xl py-2 px-3">
+                  <span className="text-[10px] text-dark-muted font-bold uppercase block">Duration</span>
+                  <span className="font-mono font-bold text-white">{formatTimer(elapsedSeconds)}</span>
+                </div>
+                <div className="glass-card rounded-xl py-2 px-3">
+                  <span className="text-[10px] text-dark-muted font-bold uppercase block">Questions Answered</span>
+                  <span className="font-mono font-bold text-white">{messages.filter(m => m.role === 'candidate').length} Turns</span>
+                </div>
+              </div>
+
+              {/* Action Button */}
+              <button
+                onClick={() => navigate('/companies')}
+                className="w-full py-3 rounded-xl bg-brand-500 hover:bg-brand-400 text-dark-bg font-bold text-xs shadow-lg shadow-brand-500/20 flex items-center justify-center gap-2 transition-all hover:scale-[1.01]"
+              >
+                <span>Return to Target Companies</span>
+                <ArrowRight className="w-4 h-4" />
+              </button>
+            </div>
+          ) : (
+            <div className="glass-panel rounded-3xl p-8 max-w-md w-full text-center border border-dark-border shadow-2xl animate-in zoom-in-95">
+              <div className="w-14 h-14 rounded-2xl bg-brand-500/15 border border-brand-500/30 flex items-center justify-center text-brand-400 mx-auto mb-4">
+                <CheckCircle className="w-8 h-8" />
+              </div>
+
+              <h3 className="text-xl font-bold text-white mb-1">Interview Completed</h3>
+              <p className="text-xs text-dark-muted mb-4">
+                You practiced with <strong>{compName}</strong> across {messages.length} conversational turns.
+              </p>
+
+              {evaluationError && (
+                <div className="p-3 mb-4 rounded-xl bg-accent-rose/10 border border-accent-rose/30 text-[11px] text-rose-300">
+                  {evaluationError}
+                </div>
+              )}
+
+              <div className="grid grid-cols-2 gap-3 mb-6">
+                <div className="glass-card rounded-xl p-3 text-center">
+                  <span className="text-[10px] text-dark-muted font-bold uppercase block">Duration</span>
+                  <span className="text-sm font-mono font-bold text-white">{formatTimer(elapsedSeconds)}</span>
+                </div>
+                <div className="glass-card rounded-xl p-3 text-center">
+                  <span className="text-[10px] text-dark-muted font-bold uppercase block">Total Turns</span>
+                  <span className="text-sm font-mono font-bold text-white">{messages.length}</span>
+                </div>
+              </div>
+
+              <button
+                onClick={() => navigate('/companies')}
+                className="w-full py-3 rounded-xl bg-brand-500 hover:bg-brand-400 text-dark-bg font-bold text-xs shadow-lg shadow-brand-500/20 transition-all"
+              >
+                Return to Companies Dashboard
+              </button>
+            </div>
+          )}
         </div>
       )}
+
     </div>
   );
 };

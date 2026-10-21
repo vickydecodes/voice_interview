@@ -10,11 +10,13 @@ from backend.core.database import get_interviews_collection, get_companies_colle
 from backend.core.security import get_current_user
 from backend.models.interview import (
     InterviewCreateRequest,
+    InterviewEvaluation,
     InterviewInDB,
     InterviewMessage,
     InterviewTurnRequest,
     InterviewTurnResponse,
 )
+
 from backend.services.ai_service import ai_service, OpenRouterError
 
 router = APIRouter(prefix="/interviews", tags=["Interviews"])
@@ -276,3 +278,64 @@ async def get_interview_session(
         )
 
     return _format_interview_doc(interview)
+
+
+@router.post("/{interview_id}/complete", response_model=InterviewInDB)
+async def complete_interview_session(
+    interview_id: str,
+    current_user: dict = Depends(get_current_user),
+):
+    """
+    Finalizes the interview, runs AI evaluation over candidate answers,
+    and returns the evaluated interview session with ratings, verdict, and feedback.
+    """
+    interviews_col = get_interviews_collection()
+    interview = await interviews_col.find_one({"_id": interview_id})
+    if not interview:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Interview session '{interview_id}' not found.",
+        )
+
+    if interview.get("user_id") != str(current_user["_id"]):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You do not have access to this interview session.",
+        )
+
+    # If already completed with evaluation, return existing record
+    if interview.get("status") == "completed" and interview.get("evaluation"):
+        return _format_interview_doc(interview)
+
+    messages = interview.get("messages", [])
+    company = interview.get("company_snapshot", {})
+
+    # Evaluate with AI Service
+    evaluation_data = await ai_service.evaluate_interview(
+        transcript_messages=messages,
+        company=company,
+        candidate=current_user,
+    )
+
+    now = datetime.utcnow()
+    await interviews_col.update_one(
+        {"_id": interview_id},
+        {
+            "$set": {
+                "status": "completed",
+                "evaluation": evaluation_data,
+                "updated_at": now,
+            }
+        },
+    )
+
+    updated_doc = await interviews_col.find_one({"_id": interview_id})
+    logger.info(
+        "Evaluated interview %s for %s: Rating %s, Verdict: %s",
+        interview_id,
+        current_user.get("email"),
+        evaluation_data.get("rating"),
+        evaluation_data.get("verdict"),
+    )
+    return _format_interview_doc(updated_doc)
+

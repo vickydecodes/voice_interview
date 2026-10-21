@@ -26,6 +26,14 @@ class InterviewTurnResponse(BaseModel):
     messages: List[InterviewMessage]
 
 
+class InterviewEvaluation(BaseModel):
+    rating: float = Field(default=7.0, ge=1.0, le=10.0, description="Overall rating out of 10")
+    verdict: str = Field(default="Hire", description="Recommendation: Strong Hire, Hire, Lean Hire, or Needs Practice")
+    summary: str = Field(default="", description="Concise feedback summary paragraph")
+    strengths: List[str] = Field(default_factory=list, description="Key candidate strengths observed")
+    improvements: List[str] = Field(default_factory=list, description="Targeted areas for growth")
+
+
 class InterviewInDB(BaseModel):
     id: str
     user_id: str
@@ -33,5 +41,7 @@ class InterviewInDB(BaseModel):
     company_snapshot: Dict[str, Any]
     messages: List[InterviewMessage] = Field(default_factory=list)
     status: Literal["active", "completed"] = "active"
+    evaluation: Optional[InterviewEvaluation] = None
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
+

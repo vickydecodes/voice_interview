@@ -228,8 +228,27 @@ class AIService:
                 ]
             }
 
+        # 3. Interview Evaluation Mock
+
+        if "evaluation" in sys_lower or "interview evaluation" in sys_lower:
+            return {
+                "rating": 8.5,
+                "verdict": "Hire",
+                "summary": "Candidate demonstrated solid problem-solving depth, articulated distributed systems trade-offs cleanly, and clearly referenced real-world project achievements from their resume.",
+                "strengths": [
+                    "Clear communication and architectural clarity",
+                    "Good grasp of scalability bottlenecks and resilience patterns",
+                    "Accountability and ownership mindset"
+                ],
+                "improvements": [
+                    "Provide more quantitative metrics (latency/throughput) in responses",
+                    "Discuss disaster recovery and failover mechanisms in greater detail"
+                ]
+            }
+
         # Fallback generic JSON
         return {"status": "ok", "mock": True}
+
 
     def _mock_chat(self, messages: List[Dict[str, str]]) -> str:
         """Provides realistic conversational interview turns in mock mode."""
@@ -358,5 +377,79 @@ class AIService:
         reply = choices[0].get("message", {}).get("content", "")
         return reply.strip()
 
+    async def evaluate_interview(
+        self,
+        transcript_messages: List[Dict[str, Any]],
+        company: Dict[str, Any],
+        candidate: Dict[str, Any],
+    ) -> Dict[str, Any]:
+        """Evaluates an interview transcript and returns a lightweight structured scorecard."""
+        if settings.LLM_PROVIDER.lower() == "mock":
+            return self._mock_generate_json("interview evaluation", "", "")
+
+        # Format transcript text
+        formatted_turns = []
+        for msg in transcript_messages:
+            role = "AI Interviewer" if msg.get("role") == "interviewer" else "Candidate"
+            text = msg.get("text", "").strip()
+            if text:
+                formatted_turns.append(f"{role}: {text}")
+        transcript_text = "\n".join(formatted_turns) or "Brief conversation."
+
+        comp_name = company.get("name", "Target Company")
+        diff_level = company.get("difficulty_level", "Medium")
+        focus_areas = ", ".join(company.get("focus_areas", []))
+
+        candidate_name = candidate.get("name", "Candidate")
+        skills = ", ".join(candidate.get("parsed_resume", {}).get("skills", [])[:10])
+
+        system_prompt = f"""You are a principal hiring committee bar raiser evaluating a candidate's technical interview for {comp_name}.
+Difficulty Level: {diff_level}
+Company Focus Areas: {focus_areas}
+Candidate: {candidate_name} (Skills: {skills})
+
+Evaluate the candidate's answers based on their technical depth, problem-solving, communication, and alignment with {comp_name}'s bar.
+Return STRICTLY a JSON object with this exact structure:
+{{
+  "rating": <float between 1.0 and 10.0, e.g. 8.5>,
+  "verdict": "<Strong Hire | Hire | Lean Hire | Needs Practice>",
+  "summary": "<A 2-3 sentence constructive feedback paragraph evaluating how they did>",
+  "strengths": ["<Specific strength observed in answers>", "<Another strength>"],
+  "improvements": ["<Specific actionable growth area to practice next time>", "<Another improvement area>"]
+}}"""
+
+        user_content = f"Interview Transcript for {comp_name}:\n\n{transcript_text}"
+
+        try:
+            result = await self.generate_json(
+                system=system_prompt,
+                user=user_content,
+                schema_hint="rating: float, verdict: string, summary: string, strengths: list[string], improvements: list[string]",
+                model=self.interview_model,
+            )
+            raw_rating = result.get("rating", 7.5)
+            try:
+                rating = float(raw_rating)
+            except Exception:
+                rating = 7.5
+            rating = max(1.0, min(10.0, round(rating, 1)))
+            return {
+                "rating": rating,
+                "verdict": str(result.get("verdict", "Hire")),
+                "summary": str(result.get("summary", "Solid interview performance with good technical fundamentals.")),
+                "strengths": list(result.get("strengths", ["Clear communication", "Good foundational knowledge"]))[:4],
+                "improvements": list(result.get("improvements", ["Provide deeper technical metrics in answers"]))[:4],
+            }
+        except Exception as e:
+            logger.error("Failed to generate AI interview evaluation: %s", e)
+            return {
+                "rating": 7.0,
+                "verdict": "Completed",
+                "summary": "Completed practice session with the AI interviewer. Continue practicing across different system scenarios and real-world architectures to build confidence.",
+                "strengths": ["Completed full conversational interview session", "Active engagement with technical questions"],
+                "improvements": ["Elaborate further on trade-offs and edge-case handling"],
+            }
+
 
 ai_service = AIService()
+

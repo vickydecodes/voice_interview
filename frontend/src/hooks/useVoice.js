@@ -16,10 +16,13 @@ export const useVoice = () => {
   const recognitionRef = useRef(null);
   const isSpeakingRef = useRef(false);
   const shouldResumeListeningRef = useRef(false);
+  const baseTranscriptRef = useRef('');
+  const currentTranscriptRef = useRef('');
 
   useEffect(() => {
     isSpeakingRef.current = isSpeaking;
   }, [isSpeaking]);
+
 
   // Check feature support on mount
   useEffect(() => {
@@ -66,6 +69,9 @@ export const useVoice = () => {
       return;
     }
 
+    // Capture base transcript from previous speech sessions
+    baseTranscriptRef.current = currentTranscriptRef.current;
+
     try {
       if (recognitionRef.current) {
         try {
@@ -91,22 +97,43 @@ export const useVoice = () => {
           return;
         }
 
-        let currentInterim = '';
-        let currentFinal = '';
+        let sessionFinal = '';
+        let sessionInterim = '';
 
-        for (let i = event.resultIndex; i < event.results.length; ++i) {
+        // Iterate over full event.results to build session transcript deterministically
+        for (let i = 0; i < event.results.length; ++i) {
           const item = event.results[i];
-          if (item.isFinal) {
-            currentFinal += item[0].transcript + ' ';
-          } else {
-            currentInterim += item[0].transcript;
+          if (item && item[0]) {
+            const chunk = item[0].transcript || '';
+            if (item.isFinal) {
+              sessionFinal += chunk + ' ';
+            } else {
+              sessionInterim += chunk;
+            }
           }
         }
 
-        if (currentFinal) {
-          setTranscript((prev) => (prev ? `${prev} ${currentFinal.trim()}` : currentFinal.trim()));
+        sessionFinal = sessionFinal.trim();
+        sessionInterim = sessionInterim.trim();
+
+        // Prevent boundary duplication between final words and interim words
+        if (sessionFinal && sessionInterim) {
+          const finalWords = sessionFinal.toLowerCase().split(/\s+/);
+          const interimWords = sessionInterim.toLowerCase().split(/\s+/);
+          if (finalWords.length > 0 && interimWords.length > 0) {
+            if (finalWords[finalWords.length - 1] === interimWords[0]) {
+              sessionInterim = sessionInterim.split(/\s+/).slice(1).join(' ').trim();
+            }
+          }
         }
-        setInterimTranscript(currentInterim);
+
+        const combinedFinal = baseTranscriptRef.current
+          ? (sessionFinal ? `${baseTranscriptRef.current} ${sessionFinal}` : baseTranscriptRef.current)
+          : sessionFinal;
+
+        currentTranscriptRef.current = combinedFinal;
+        setTranscript(combinedFinal);
+        setInterimTranscript(sessionInterim);
       };
 
       recognition.onerror = (event) => {
@@ -135,9 +162,21 @@ export const useVoice = () => {
   }, []);
 
   const resetTranscript = useCallback(() => {
+    baseTranscriptRef.current = '';
+    currentTranscriptRef.current = '';
     setTranscript('');
     setInterimTranscript('');
   }, []);
+
+  const updateTranscript = useCallback((val) => {
+    const nextVal = typeof val === 'function' ? val(currentTranscriptRef.current) : val;
+    const clean = nextVal || '';
+    currentTranscriptRef.current = clean;
+    baseTranscriptRef.current = clean;
+    setTranscript(clean);
+    setInterimTranscript('');
+  }, []);
+
 
   // AI TTS Voice output
   const speak = useCallback((text, onEnd) => {
@@ -234,9 +273,10 @@ export const useVoice = () => {
     startListening,
     stopListening,
     resetTranscript,
-    setTranscript,
+    setTranscript: updateTranscript,
     speak,
     stopSpeaking,
+
   };
 };
 

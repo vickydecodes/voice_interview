@@ -74,15 +74,24 @@ if !errorlevel! neq 0 (
 echo [1/7] Checking MongoDB connection... !MONGO_STATUS!
 
 :: -------------------------------------------------------------
-:: Step 2: Environment Files (.env)
+:: Step 2: Network & Environment Configuration (.env)
 :: -------------------------------------------------------------
-echo [2/7] Checking environment files...
+echo [2/7] Inspecting network configuration (ipconfig)...
+ipconfig | findstr /i "adapter IPv4 Default"
+
+set "LOCAL_IP="
+for /f "tokens=*" %%i in ('!PYTHON_CMD! scripts\checker.py get_ip 2^>nul') do set "LOCAL_IP=%%i"
+if "!LOCAL_IP!"=="" set "LOCAL_IP=127.0.0.1"
+
+echo       Detected Local Network IP: !LOCAL_IP!
+echo       Configuring frontend/.env and backend/.env for mobile/LAN access...
+!PYTHON_CMD! scripts\checker.py setup_network_env !LOCAL_IP! >nul 2>&1
 !PYTHON_CMD! scripts\checker.py check_env >nul 2>&1
 if !errorlevel! neq 0 (
     !PYTHON_CMD! scripts\checker.py check_env
     exit /b 1
 )
-echo [2/7] Checking environment files... OK (.env configured)
+echo [2/7] Checking environment files... OK (configured for http://!LOCAL_IP!:8000)
 
 :: Check-Only Flag
 if "%CHECK_ONLY%"=="1" (
@@ -90,9 +99,13 @@ if "%CHECK_ONLY%"=="1" (
     echo ================================================================
     echo [CHECK PASSED] All prerequisites, environment files, and MongoDB
     echo connection checks passed successfully^^!
+    echo   Detected LAN IP:   !LOCAL_IP!
+    echo   Phone Web App:     http://!LOCAL_IP!:5173
+    echo   Backend API Docs:  http://!LOCAL_IP!:8000/docs
     echo ================================================================
     exit /b 0
 )
+
 
 :: -------------------------------------------------------------
 :: Step 3: Backend Setup (backend/.venv)
@@ -173,7 +186,7 @@ echo [5/7] Checking network ports (8000, 5173)... OK (both free)
 :: -------------------------------------------------------------
 echo [6/7] Starting application servers...
 echo       Starting backend API on port 8000...
-start "AI Interview Simulator - Backend" cmd /k "cd /d ""%ROOT_DIR%backend"" && call .venv\Scripts\activate.bat && python -m uvicorn app.main:app --reload --port 8000"
+start "AI Interview Simulator - Backend" cmd /k "cd /d ""%ROOT_DIR%backend"" && call .venv\Scripts\activate.bat && python -m uvicorn app.main:app --reload --host 0.0.0.0 --port 8000"
 
 :: -------------------------------------------------------------
 :: Step 7: Health Wait (poll /health up to 20 seconds)
@@ -193,7 +206,10 @@ echo.
 echo ================================================================
 echo           AI INTERVIEW SIMULATOR READY^^!
 echo ================================================================
-echo   Frontend Web App:  http://localhost:5173
-echo   Backend API Docs:  http://localhost:8000/docs
+echo   Local Web App:    http://localhost:5173
+echo   Network Web App:  http://!LOCAL_IP!:5173  (Open on Phone)
+echo   Backend API Docs: http://!LOCAL_IP!:8000/docs
 echo ================================================================
 echo.
+
+

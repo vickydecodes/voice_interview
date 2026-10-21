@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+const API_BASE_URL = import.meta.env.VITE_API_URL || (typeof window !== 'undefined' && window.location.hostname ? `${window.location.protocol}//${window.location.hostname}:8000` : 'http://localhost:8000');
 
 export const apiClient = axios.create({
   baseURL: API_BASE_URL,
@@ -98,6 +98,14 @@ export const interviewsApi = {
     const response = await apiClient.get(`/interviews/${interviewId}`);
     return response.data;
   },
+
+  completeInterview: async (interviewId) => {
+    const response = await apiClient.post(`/interviews/${interviewId}/complete`, {}, {
+      timeout: 90000,
+    });
+    return response.data;
+  },
 };
+
 
 export default apiClient;
