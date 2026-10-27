@@ -29,8 +29,13 @@ class Settings(BaseSettings):
     LLM_PROVIDER: str = "openrouter"
     LLM_MODEL: Optional[str] = None
     OPENROUTER_API_KEY: str = ""
-    OPENROUTER_MODEL: str = "minimax/minimax-m3.1-flash:free"
+    OPENROUTER_MODEL: str = "nvidia/nemotron-3.5-lightning:free"
     OPENROUTER_INTERVIEW_MODEL: Optional[str] = None
+    OPENROUTER_FALLBACK_MODELS: List[str] = [
+        "nvidia/nemotron-3.5-lightning:free",
+        "nvidia/nemotron-3-ultra-550b-a55b:free",
+        "cohere/north-mini-code:free",
+    ]
     
     # CORS
     CORS_ORIGINS: List[str] = [

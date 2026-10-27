@@ -105,6 +105,11 @@ export const interviewsApi = {
     });
     return response.data;
   },
+
+  getUserInterviews: async () => {
+    const response = await apiClient.get('/interviews');
+    return response.data;
+  },
 };
 
 

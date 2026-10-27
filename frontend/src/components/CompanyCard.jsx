@@ -1,94 +1,63 @@
 import React from 'react';
-import { ArrowRight, Flame, ShieldAlert, Sparkles, Building, Layers } from 'lucide-react';
+import { ArrowRight } from 'lucide-react';
 
 export const CompanyCard = ({ company, onStartInterview, isStarting = false }) => {
   const getDifficultyBadge = (level) => {
     switch (level) {
       case 'Elite':
-        return {
-          bg: 'bg-rose-500/15 text-rose-300 border-rose-500/30 shadow-rose-500/10',
-          dot: 'bg-rose-400',
-          icon: Flame,
-        };
       case 'Hard':
-        return {
-          bg: 'bg-amber-500/15 text-amber-300 border-amber-500/30 shadow-amber-500/10',
-          dot: 'bg-amber-400',
-          icon: ShieldAlert,
-        };
+        return 'bg-red-50 text-red-700 border-red-200';
       case 'Medium':
-        return {
-          bg: 'bg-cyan-500/15 text-cyan-300 border-cyan-500/30 shadow-cyan-500/10',
-          dot: 'bg-cyan-400',
-          icon: Layers,
-        };
+        return 'bg-amber-50 text-amber-700 border-amber-200';
       default:
-        return {
-          bg: 'bg-brand-500/15 text-brand-300 border-brand-500/30 shadow-brand-500/10',
-          dot: 'bg-brand-400',
-          icon: Sparkles,
-        };
+        return 'bg-emerald-50 text-emerald-700 border-emerald-200';
     }
   };
 
-  const badge = getDifficultyBadge(company.difficulty_level);
-  const BadgeIcon = badge.icon;
+  const badgeClass = getDifficultyBadge(company.difficulty_level);
 
   return (
-    <div className="glass-card rounded-2xl p-6 flex flex-col justify-between relative group overflow-hidden">
-      {/* Top subtle highlight line */}
-      <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-brand-500/30 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
-
+    <div className="bg-white rounded-xl p-5 border border-gray-200 hover:border-gray-300 hover:shadow-xs transition-all flex flex-col justify-between">
       <div>
-        {/* Header: Initial + Name + Difficulty Badge */}
-        <div className="flex items-start justify-between gap-3 mb-4">
-          <div className="flex items-center gap-3">
-            <div className="w-12 h-12 rounded-xl bg-dark-elevated border border-dark-border flex items-center justify-center text-lg font-extrabold text-white group-hover:border-brand-500/50 group-hover:text-brand-400 transition-all shadow-md">
+        {/* Header: Company Name & Difficulty */}
+        <div className="flex items-start justify-between gap-2 mb-2">
+          <div className="flex items-center gap-2.5">
+            <div className="w-9 h-9 rounded-lg bg-gray-100 border border-gray-200 text-gray-800 font-bold text-sm flex items-center justify-center">
               {company.initial || company.name?.[0]?.toUpperCase() || 'C'}
             </div>
             <div>
-              <h3 className="text-base font-bold text-white group-hover:text-brand-400 transition-colors flex items-center gap-2">
+              <h3 className="text-sm font-bold text-gray-900 leading-tight">
                 {company.name}
               </h3>
-              <p className="text-xs text-dark-muted font-medium line-clamp-1">{company.industry}</p>
+              <p className="text-xs text-gray-500">{company.industry}</p>
             </div>
           </div>
 
-          <div
-            className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold border ${badge.bg} shadow-sm shrink-0`}
+          <span
+            className={`px-2 py-0.5 rounded text-[11px] font-semibold border ${badgeClass} shrink-0`}
           >
-            <BadgeIcon className="w-3 h-3" />
-            <span>{company.difficulty_level}</span>
-            <span className="opacity-60 text-[10px]">({company.difficulty_score}/10)</span>
-          </div>
+            {company.difficulty_level} ({company.difficulty_score}/10)
+          </span>
         </div>
 
-        {/* Brand Summary */}
-        <p className="text-xs text-dark-muted/90 line-clamp-2 mb-4 leading-relaxed font-normal">
+        {/* Short Summary */}
+        <p className="text-xs text-gray-600 line-clamp-2 my-2.5 leading-relaxed">
           {company.brand_summary || company.brand_identity}
         </p>
 
-        {/* Valuation / Scale Tag */}
-        {company.estimated_valuation_or_scale && (
-          <div className="mb-4 flex items-center gap-1.5 text-[11px] text-dark-muted font-mono">
-            <Building className="w-3 h-3 text-brand-400/80" />
-            <span className="text-gray-300 font-medium">{company.estimated_valuation_or_scale}</span>
-          </div>
-        )}
-
-        {/* Focus Areas */}
+        {/* Focus Areas Chips */}
         {company.focus_areas && company.focus_areas.length > 0 && (
-          <div className="flex flex-wrap gap-1.5 mb-6">
+          <div className="flex flex-wrap gap-1 mb-4">
             {company.focus_areas.slice(0, 3).map((area, idx) => (
               <span
                 key={idx}
-                className="text-[10px] px-2 py-0.5 rounded-md bg-dark-bg/60 text-dark-muted border border-dark-border/60 font-medium"
+                className="text-[11px] px-2 py-0.5 rounded bg-gray-100 text-gray-700 font-medium"
               >
                 {area}
               </span>
             ))}
             {company.focus_areas.length > 3 && (
-              <span className="text-[10px] px-1.5 py-0.5 text-dark-muted/60">
+              <span className="text-[11px] px-1.5 py-0.5 text-gray-400">
                 +{company.focus_areas.length - 3}
               </span>
             )}
@@ -96,21 +65,21 @@ export const CompanyCard = ({ company, onStartInterview, isStarting = false }) =
         )}
       </div>
 
-      {/* Start Interview CTA */}
+      {/* Start Button */}
       <button
         onClick={() => onStartInterview(company)}
         disabled={isStarting}
-        className="w-full mt-2 py-2.5 px-4 rounded-xl bg-dark-elevated hover:bg-brand-500 hover:text-dark-bg text-white font-semibold text-xs border border-dark-border hover:border-brand-500 transition-all duration-200 flex items-center justify-center gap-2 group-hover:shadow-lg group-hover:shadow-brand-500/10 disabled:opacity-50 disabled:cursor-not-allowed"
+        className="w-full py-2 px-3 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-medium text-xs flex items-center justify-center gap-1.5 transition-colors disabled:opacity-50"
       >
         {isStarting ? (
           <>
-            <span className="w-3.5 h-3.5 border-2 border-current border-t-transparent rounded-full animate-spin" />
-            <span>Preparing Session...</span>
+            <span className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+            <span>Connecting...</span>
           </>
         ) : (
           <>
-            <span>Start Interview</span>
-            <ArrowRight className="w-3.5 h-3.5 transition-transform group-hover:translate-x-0.5" />
+            <span>Start Practice Interview</span>
+            <ArrowRight className="w-3.5 h-3.5" />
           </>
         )}
       </button>

@@ -9,19 +9,12 @@ import {
   MicOff,
   PhoneOff,
   Send,
-  Keyboard,
-  Sparkles,
   Volume2,
   VolumeX,
   AlertCircle,
   Clock,
-  Flame,
-  ShieldAlert,
-  Layers,
-  CheckCircle,
-  Award,
-  Check,
-  TrendingUp,
+  Printer,
+  FileText,
   ArrowRight,
 } from 'lucide-react';
 
@@ -35,48 +28,55 @@ export const InterviewPage = () => {
   const [isThinking, setIsThinking] = useState(false);
   const [error, setError] = useState(null);
 
-  // Fallback typed input
+  // Typed input fallback
   const [typedInput, setTypedInput] = useState('');
-  const [showTypedInput, setShowTypedInput] = useState(false);
-  const [isMuted, setIsMuted] = useState(false);
-  const [isEnded, setIsEnded] = useState(false);
-  const [elapsedSeconds, setElapsedSeconds] = useState(0);
 
-  // AI Evaluation & Scorecard state
+  // Audio mute toggle
+  const [isMuted, setIsMuted] = useState(false);
+
+  // Evaluation states
+  const [isEnded, setIsEnded] = useState(false);
   const [isEvaluating, setIsEvaluating] = useState(false);
   const [evaluation, setEvaluation] = useState(null);
   const [evaluationError, setEvaluationError] = useState(null);
 
+  // Live Timer
+  const [elapsedSeconds, setElapsedSeconds] = useState(0);
 
-  // Voice hook
+  const hasGreetedRef = useRef(false);
+
+  // Speech Recognition & Synthesis Hook
   const {
-    isSupported,
     isListening,
     isSpeaking,
     transcript,
     interimTranscript,
-    error: voiceError,
     startListening,
     stopListening,
-    resetTranscript,
     speak,
     stopSpeaking,
-  } = useVoice();
+    resetTranscript,
+    error: voiceError,
+  } = useVoice({
+    onTranscriptEnd: (finalAnswer) => {
+      if (finalAnswer && finalAnswer.trim().length > 0) {
+        handleSendAnswer(finalAnswer);
+      }
+    },
+  });
 
-  const hasGreetedRef = useRef(false);
-
-  // Call duration timer
+  // Timer interval
   useEffect(() => {
-    if (isEnded || loadingSession) return;
-    const timer = setInterval(() => {
+    if (isEnded) return;
+    const interval = setInterval(() => {
       setElapsedSeconds((prev) => prev + 1);
     }, 1000);
-    return () => clearInterval(timer);
-  }, [isEnded, loadingSession]);
+    return () => clearInterval(interval);
+  }, [isEnded]);
 
-  const formatTimer = (totalSecs) => {
-    const mins = Math.floor(totalSecs / 60);
-    const secs = totalSecs % 60;
+  const formatTimer = (totalSeconds) => {
+    const mins = Math.floor(totalSeconds / 60);
+    const secs = totalSeconds % 60;
     return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   };
 
@@ -95,12 +95,10 @@ export const InterviewPage = () => {
         }
 
         // Speak opening greeting once loaded
-
         if (!hasGreetedRef.current && data.messages && data.messages.length > 0) {
           hasGreetedRef.current = true;
           const firstMsg = data.messages[0];
           if (firstMsg.role === 'interviewer') {
-            // Small timeout to allow user interaction context
             setTimeout(() => {
               if (!isMuted) {
                 speak(firstMsg.text);
@@ -110,7 +108,7 @@ export const InterviewPage = () => {
         }
       } catch (err) {
         console.error('Failed to load interview session:', err);
-        setError('Interview session could not be found or has expired.');
+        setError('Interview session could not be found.');
       } finally {
         setLoadingSession(false);
       }
@@ -126,14 +124,12 @@ export const InterviewPage = () => {
     const answer = (textToSend || transcript).trim();
     if (!answer || isThinking) return;
 
-    // Stop listening before sending
     stopListening();
     setIsThinking(true);
     resetTranscript();
     setTypedInput('');
-    setShowTypedInput(false);
 
-    // Optimistic UI update: append candidate answer immediately
+    // Optimistic UI update
     const tempCandidateMsg = {
       role: 'candidate',
       text: answer,
@@ -145,14 +141,14 @@ export const InterviewPage = () => {
       const response = await interviewsApi.sendTurn(id, answer);
       setMessages(response.messages);
 
-      // Play AI voice answer
-      if (!isMuted) {
+      // Speak interviewer reply if not muted
+      if (!isMuted && response.reply) {
         speak(response.reply);
       }
     } catch (err) {
       console.error('Error during interview turn:', err);
       const errMsg =
-        err.response?.data?.detail || err.message || 'Failed to process answer with AI service.';
+        err.response?.data?.detail || err.message || 'Failed to submit answer.';
       setError(errMsg);
     } finally {
       setIsThinking(false);
@@ -185,7 +181,7 @@ export const InterviewPage = () => {
       }
     } catch (err) {
       console.error('Failed to evaluate interview:', err);
-      setEvaluationError(err.response?.data?.detail || 'Could not generate AI evaluation. Practice metrics recorded.');
+      setEvaluationError(err.response?.data?.detail || 'Could not generate evaluation.');
     } finally {
       setIsEvaluating(false);
     }
@@ -194,15 +190,13 @@ export const InterviewPage = () => {
   const getVerdictStyle = (verdict = '') => {
     const v = verdict.toLowerCase();
     if (v.includes('strong hire') || v.includes('hire')) {
-      return 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30';
+      return 'bg-emerald-50 text-emerald-800 border-emerald-200';
     }
     if (v.includes('lean')) {
-      return 'bg-amber-500/15 text-amber-300 border-amber-500/30';
+      return 'bg-amber-50 text-amber-800 border-amber-200';
     }
-    return 'bg-purple-500/15 text-purple-300 border-purple-500/30';
+    return 'bg-purple-50 text-purple-800 border-purple-200';
   };
-
-  // Determine avatar visual state
 
   const getAvatarState = () => {
     if (isSpeaking) return 'speaking';
@@ -212,31 +206,29 @@ export const InterviewPage = () => {
   };
 
   const company = session?.company_snapshot || {};
-  const compName = company.name || 'AI Interviewer';
+  const compName = company.name || 'Interviewer';
 
   if (loadingSession) {
     return (
-      <div className="min-h-[calc(100vh-4rem)] flex flex-col items-center justify-center p-4">
-        <div className="w-14 h-14 rounded-2xl bg-brand-500/10 border border-brand-500/30 flex items-center justify-center text-brand-400 mb-4 animate-pulse">
-          <Sparkles className="w-7 h-7 animate-spin duration-1000" />
+      <div className="min-h-[calc(100vh-3.5rem)] flex flex-col items-center justify-center p-4">
+        <div className="w-8 h-8 rounded-lg bg-white border border-gray-200 flex items-center justify-center text-indigo-600 mb-2 shadow-xs">
+          <span className="w-4 h-4 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin" />
         </div>
-        <p className="text-sm font-semibold text-white tracking-wide">
-          Connecting to AI Interview Session...
-        </p>
+        <p className="text-xs text-gray-600 font-medium">Connecting to interview...</p>
       </div>
     );
   }
 
   if (error && !session) {
     return (
-      <div className="min-h-[calc(100vh-4rem)] flex flex-col items-center justify-center p-4">
-        <div className="glass-panel rounded-3xl p-8 max-w-md w-full text-center border border-accent-rose/30">
-          <AlertCircle className="w-10 h-10 text-accent-rose mx-auto mb-3" />
-          <h2 className="text-lg font-bold text-white mb-2">Session Error</h2>
-          <p className="text-xs text-dark-muted mb-6">{error}</p>
+      <div className="min-h-[calc(100vh-3.5rem)] flex flex-col items-center justify-center p-4">
+        <div className="bg-white rounded-xl p-6 max-w-sm w-full text-center border border-red-200 shadow-sm">
+          <AlertCircle className="w-7 h-7 text-red-500 mx-auto mb-2" />
+          <h2 className="text-sm font-bold text-gray-900 mb-1">Session Error</h2>
+          <p className="text-xs text-gray-500 mb-4">{error}</p>
           <button
             onClick={() => navigate('/companies')}
-            className="px-5 py-2.5 rounded-xl bg-dark-elevated text-white font-semibold text-xs border border-dark-border hover:bg-dark-border transition-colors"
+            className="px-4 py-2 rounded-lg bg-indigo-600 text-white font-medium text-xs hover:bg-indigo-700 transition-colors"
           >
             Back to Companies
           </button>
@@ -246,45 +238,45 @@ export const InterviewPage = () => {
   }
 
   return (
-    <div className="min-h-[calc(100vh-4rem)] flex flex-col bg-dark-bg relative overflow-hidden">
+    <div className="h-[calc(100vh-3.5rem)] flex flex-col bg-gray-50 overflow-hidden">
       {/* Top Header Bar */}
-      <div className="border-b border-dark-border/80 bg-dark-card/40 backdrop-blur-md px-4 sm:px-6 py-3.5 flex items-center justify-between z-20">
+      <div className="border-b border-gray-200 bg-white px-4 sm:px-6 py-2.5 flex items-center justify-between shrink-0">
         {/* Left: Company & Difficulty Details */}
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-dark-elevated border border-dark-border flex items-center justify-center font-bold text-white text-sm">
+        <div className="flex items-center gap-2.5">
+          <div className="w-8 h-8 rounded-lg bg-gray-100 border border-gray-200 flex items-center justify-center font-bold text-gray-800 text-xs">
             {company.initial || compName[0]}
           </div>
           <div>
-            <div className="flex items-center gap-2">
-              <h2 className="text-sm sm:text-base font-bold text-white">{compName}</h2>
-              <span className="text-[10px] px-2 py-0.5 rounded-full font-semibold bg-brand-500/15 text-brand-300 border border-brand-500/30">
-                {company.difficulty_level || 'Medium'} Tier
+            <div className="flex items-center gap-1.5">
+              <h2 className="text-sm font-bold text-gray-900">{compName}</h2>
+              <span className="text-[10px] px-2 py-0.5 rounded font-medium bg-gray-100 text-gray-700 border border-gray-200">
+                {company.difficulty_level || 'Medium'}
               </span>
             </div>
-            <p className="text-[11px] text-dark-muted hidden sm:block">
-              {company.interview_style || 'Technical & Behavioral Evaluation'}
+            <p className="text-[11px] text-gray-500 hidden sm:block">
+              {company.industry || 'Software Engineering'}
             </p>
           </div>
         </div>
 
         {/* Center: Live Timer */}
-        <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-dark-elevated border border-dark-border text-xs font-mono font-medium text-gray-300">
-          <Clock className="w-3.5 h-3.5 text-brand-400" />
+        <div className="flex items-center gap-1.5 px-3 py-1 rounded-md bg-gray-100 border border-gray-200 text-xs font-mono font-medium text-gray-700">
+          <Clock className="w-3.5 h-3.5 text-gray-500" />
           <span>{formatTimer(elapsedSeconds)}</span>
         </div>
 
         {/* Right: Sound toggle & End Call CTA */}
-        <div className="flex items-center gap-2 sm:gap-3">
+        <div className="flex items-center gap-2">
           <button
             onClick={() => {
               if (!isMuted) stopSpeaking();
               setIsMuted(!isMuted);
             }}
-            title={isMuted ? 'Unmute AI Voice' : 'Mute AI Voice'}
-            className={`p-2 rounded-xl border text-xs font-medium transition-colors ${
+            title={isMuted ? 'Unmute Audio' : 'Mute Audio'}
+            className={`p-1.5 rounded-lg border text-xs transition-colors ${
               isMuted
-                ? 'bg-accent-rose/15 text-accent-rose border-accent-rose/30'
-                : 'bg-dark-elevated text-dark-muted hover:text-white border-dark-border'
+                ? 'bg-red-50 text-red-700 border-red-200'
+                : 'bg-white text-gray-600 hover:bg-gray-50 border-gray-200'
             }`}
           >
             {isMuted ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
@@ -292,7 +284,7 @@ export const InterviewPage = () => {
 
           <button
             onClick={handleEndInterview}
-            className="px-3.5 py-2 rounded-xl bg-accent-rose/15 hover:bg-accent-rose/25 text-rose-300 font-bold text-xs border border-accent-rose/30 flex items-center gap-1.5 transition-colors shadow-sm"
+            className="px-3 py-1.5 rounded-lg bg-red-600 hover:bg-red-700 text-white font-medium text-xs flex items-center gap-1.5 transition-colors shadow-xs"
           >
             <PhoneOff className="w-3.5 h-3.5" />
             <span className="hidden sm:inline">End Interview</span>
@@ -301,53 +293,44 @@ export const InterviewPage = () => {
       </div>
 
       {/* Main Call Stage */}
-      <div className="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 grid grid-cols-1 lg:grid-cols-12 gap-6 relative z-10">
+      <div className="flex-1 max-w-6xl w-full mx-auto p-4 grid grid-cols-1 lg:grid-cols-12 gap-4 min-h-0 overflow-hidden">
         {/* Left Column: Call Stage & Mic Controls (7 cols) */}
-        <div className="lg:col-span-7 flex flex-col justify-between glass-panel rounded-3xl p-6 border border-dark-border/80 shadow-2xl relative min-h-[480px]">
-          {/* Top subtle indicators */}
-          <div className="flex items-center justify-between text-[11px] text-dark-muted">
-            <span className="flex items-center gap-1.5">
-              <span className="w-2 h-2 rounded-full bg-brand-400 animate-pulse" />
-              Live Secure Channel
-            </span>
-            <span className="font-mono">{company.industry}</span>
-          </div>
-
-          {/* Center Stage: Audio Waveform & AI Avatar */}
-          <div className="my-auto py-4">
+        <div className="lg:col-span-7 flex flex-col justify-between bg-white rounded-xl p-5 border border-gray-200 shadow-xs h-full min-h-0 overflow-y-auto">
+          {/* Audio Waveform Avatar */}
+          <div className="my-auto py-2">
             <AudioWaveform state={getAvatarState()} companyName={compName} />
 
             {/* Error notifications */}
             {error && (
-              <div className="mt-4 p-3 rounded-xl bg-accent-rose/10 border border-accent-rose/30 text-xs text-rose-300 text-center max-w-md mx-auto">
+              <div className="mt-3 p-2.5 rounded-lg bg-red-50 border border-red-200 text-xs text-red-700 text-center max-w-md mx-auto">
                 {error}
               </div>
             )}
             {voiceError && (
-              <div className="mt-4 p-3 rounded-xl bg-accent-amber/10 border border-accent-amber/30 text-xs text-amber-300 text-center max-w-md mx-auto">
+              <div className="mt-3 p-2.5 rounded-lg bg-amber-50 border border-amber-200 text-xs text-amber-700 text-center max-w-md mx-auto">
                 {voiceError}
               </div>
             )}
           </div>
 
-          {/* Bottom Live Controls */}
-          <div className="flex flex-col items-center gap-3 w-full max-w-lg mx-auto">
-            {/* Live speech preview preview bubble if user is speaking */}
+          {/* Bottom Controls */}
+          <div className="flex flex-col items-center gap-3 w-full max-w-md mx-auto pt-3 border-t border-gray-100">
+            {/* Live speech preview if user speaking */}
             {(transcript || interimTranscript) && (
-              <div className="w-full p-3 rounded-2xl bg-dark-elevated/90 border border-brand-500/30 text-xs text-gray-200 text-left shadow-lg">
-                <div className="flex items-center justify-between mb-1 text-[10px] text-brand-400 font-semibold uppercase">
-                  <span>Your live response:</span>
+              <div className="w-full p-2.5 rounded-lg bg-indigo-50 border border-indigo-200 text-xs text-gray-800 text-left">
+                <div className="flex items-center justify-between mb-1 text-[10px] text-indigo-600 font-semibold">
+                  <span>Your live speech:</span>
                   <button
                     onClick={resetTranscript}
-                    className="text-dark-muted hover:text-white underline lowercase"
+                    className="text-gray-400 hover:text-gray-600 underline"
                   >
                     clear
                   </button>
                 </div>
-                <p className="line-clamp-3 text-gray-200">
+                <p className="line-clamp-3 text-gray-800">
                   {transcript}
                   {interimTranscript && (
-                    <span className="text-accent-cyan italic">
+                    <span className="text-indigo-600 italic">
                       {transcript ? ` ${interimTranscript}` : interimTranscript}
                     </span>
                   )}
@@ -355,86 +338,68 @@ export const InterviewPage = () => {
               </div>
             )}
 
-
-            {/* Controls Bar */}
-            <div className="flex items-center gap-4 w-full justify-center">
-              {/* Fallback Keyboard / Typed Input Toggle */}
-              <button
-                onClick={() => setShowTypedInput(!showTypedInput)}
-                title="Toggle Typed Answer Fallback"
-                className={`p-3.5 rounded-2xl border transition-colors ${
-                  showTypedInput
-                    ? 'bg-brand-500/15 border-brand-500/40 text-brand-300'
-                    : 'bg-dark-elevated border-dark-border text-dark-muted hover:text-white'
-                }`}
-              >
-                <Keyboard className="w-5 h-5" />
-              </button>
-
-              {/* Main Microphone Action Button */}
+            {/* Primary Mic Button */}
+            <div className="flex items-center gap-2 w-full justify-center">
               <button
                 onClick={toggleMic}
                 disabled={isSpeaking || isThinking}
-                className={`h-16 px-6 rounded-2xl font-bold text-xs flex items-center justify-center gap-3 transition-all duration-300 shadow-xl ${
+                className={`flex-1 py-3 px-5 rounded-lg font-medium text-xs flex items-center justify-center gap-2 transition-colors shadow-xs ${
                   isListening
-                    ? 'bg-accent-rose hover:bg-rose-600 text-white shadow-rose-500/30 scale-105 animate-pulse'
-                    : 'bg-brand-500 hover:bg-brand-400 text-dark-bg shadow-brand-500/25 hover:scale-105'
-                } disabled:opacity-40 disabled:cursor-not-allowed`}
+                    ? 'bg-red-600 hover:bg-red-700 text-white animate-pulse'
+                    : 'bg-indigo-600 hover:bg-indigo-700 text-white'
+                } disabled:opacity-50 disabled:cursor-not-allowed`}
               >
                 {isListening ? (
                   <>
-                    <MicOff className="w-5 h-5" />
-                    <span>Mute Microphone</span>
+                    <MicOff className="w-4 h-4" />
+                    <span>Stop Recording & Submit</span>
                   </>
                 ) : (
                   <>
-                    <Mic className="w-5 h-5" />
+                    <Mic className="w-4 h-4" />
                     <span>Click to Speak Answer</span>
                   </>
                 )}
               </button>
 
-              {/* Send Answer CTA (if transcript exists) */}
               {transcript && (
                 <button
                   onClick={() => handleSendAnswer(transcript)}
                   disabled={isThinking}
-                  className="p-3.5 rounded-2xl bg-brand-500 hover:bg-brand-400 text-dark-bg font-bold shadow-lg shadow-brand-500/20 transition-all hover:scale-105 disabled:opacity-50"
-                  title="Send Answer to AI"
+                  className="p-3 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-medium shadow-xs transition-colors disabled:opacity-50"
+                  title="Send Answer"
                 >
-                  <Send className="w-5 h-5" />
+                  <Send className="w-4 h-4" />
                 </button>
               )}
             </div>
 
-            {/* Typed Input Fallback Drawer */}
-            {showTypedInput && (
-              <div className="w-full mt-3 flex items-center gap-2 animate-in fade-in slide-in-from-bottom-2 duration-200">
-                <input
-                  type="text"
-                  placeholder="Type your interview answer here if mic is unavailable..."
-                  value={typedInput}
-                  onChange={(e) => setTypedInput(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') handleSendAnswer(typedInput);
-                  }}
-                  className="flex-1 px-4 py-2.5 rounded-xl bg-dark-elevated border border-dark-border focus:border-brand-500 focus:outline-none text-xs text-white placeholder-dark-muted"
-                />
-                <button
-                  onClick={() => handleSendAnswer(typedInput)}
-                  disabled={!typedInput.trim() || isThinking}
-                  className="px-4 py-2.5 rounded-xl bg-brand-500 hover:bg-brand-400 text-dark-bg font-bold text-xs flex items-center gap-1.5 shadow-md disabled:opacity-40"
-                >
-                  <span>Send</span>
-                  <Send className="w-3.5 h-3.5" />
-                </button>
-              </div>
-            )}
+            {/* Typed fallback input */}
+            <div className="w-full flex items-center gap-2">
+              <input
+                type="text"
+                placeholder="Or type your answer here..."
+                value={typedInput}
+                onChange={(e) => setTypedInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') handleSendAnswer(typedInput);
+                }}
+                className="flex-1 px-3 py-1.5 rounded-lg bg-white border border-gray-300 focus:border-indigo-600 focus:outline-none text-xs text-gray-900 placeholder:text-gray-400"
+              />
+              <button
+                onClick={() => handleSendAnswer(typedInput)}
+                disabled={!typedInput.trim() || isThinking}
+                className="px-3 py-1.5 rounded-lg bg-gray-900 hover:bg-gray-800 text-white font-medium text-xs flex items-center gap-1 disabled:opacity-40"
+              >
+                <span>Send</span>
+                <Send className="w-3 h-3" />
+              </button>
+            </div>
           </div>
         </div>
 
-        {/* Right Column: Full Conversation Transcript (5 cols) */}
-        <div className="lg:col-span-5 h-[520px] lg:h-auto">
+        {/* Right Column: Transcript (5 cols) */}
+        <div className="lg:col-span-5 h-[500px] lg:h-full min-h-0">
           <TranscriptPanel
             messages={messages}
             interimTranscript={interimTranscript}
@@ -445,78 +410,73 @@ export const InterviewPage = () => {
 
       {/* Completion & Scorecard Modal */}
       {isEnded && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md overflow-y-auto">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-gray-900/60 backdrop-blur-xs overflow-y-auto">
           {isEvaluating ? (
-            <div className="glass-panel rounded-3xl p-8 max-w-md w-full text-center border border-dark-border shadow-2xl animate-in zoom-in-95">
-              <div className="relative w-16 h-16 mx-auto mb-4">
-                <div className="absolute inset-0 rounded-2xl bg-brand-500/20 animate-ping" />
-                <div className="relative w-16 h-16 rounded-2xl bg-brand-500/15 border border-brand-500/30 flex items-center justify-center text-brand-400">
-                  <Sparkles className="w-8 h-8 animate-spin duration-1000" />
-                </div>
+            <div className="bg-white rounded-xl p-6 max-w-sm w-full text-center border border-gray-200 shadow-xl">
+              <div className="w-10 h-10 rounded-lg bg-indigo-50 border border-indigo-200 flex items-center justify-center text-indigo-600 mx-auto mb-3">
+                <span className="w-5 h-5 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin" />
               </div>
-              <h3 className="text-lg font-bold text-white mb-1.5">Generating AI Evaluation...</h3>
-              <p className="text-xs text-dark-muted leading-relaxed">
-                Evaluating your answers, technical depth, and communication against <strong>{compName}</strong>'s hiring bar.
+              <h3 className="text-base font-bold text-gray-900 mb-1">Generating Scorecard...</h3>
+              <p className="text-xs text-gray-500 leading-normal">
+                Evaluating answers against <strong>{compName}</strong>'s technical rubric.
               </p>
             </div>
           ) : evaluation ? (
-            <div className="glass-panel rounded-3xl p-6 sm:p-7 max-w-lg w-full text-left border border-dark-border shadow-2xl animate-in zoom-in-95 my-auto">
+            <div className="bg-white rounded-xl p-6 max-w-lg w-full text-left border border-gray-200 shadow-xl my-auto">
               {/* Header */}
-              <div className="flex items-center justify-between pb-4 border-b border-dark-border/80">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-dark-elevated border border-dark-border flex items-center justify-center font-bold text-white text-xs">
+              <div className="flex items-center justify-between pb-3.5 border-b border-gray-200">
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-lg bg-gray-100 border border-gray-200 flex items-center justify-center font-bold text-gray-800 text-xs">
                     {company.initial || compName[0]}
                   </div>
                   <div>
-                    <h3 className="text-sm sm:text-base font-bold text-white">{compName} Scorecard</h3>
-                    <p className="text-[11px] text-dark-muted font-medium">{company.difficulty_level || 'Medium'} Tier Evaluation</p>
+                    <h3 className="text-sm font-bold text-gray-900">{compName} Interview Results</h3>
+                    <p className="text-xs text-gray-500">{company.difficulty_level || 'Medium'} Tier Evaluation</p>
                   </div>
                 </div>
 
-                <div className={`px-3 py-1 rounded-full text-xs font-bold border flex items-center gap-1.5 ${getVerdictStyle(evaluation.verdict)}`}>
-                  <Award className="w-3.5 h-3.5" />
-                  <span>{evaluation.verdict}</span>
-                </div>
+                <span className={`px-2 py-0.5 rounded text-xs font-semibold border ${getVerdictStyle(evaluation.verdict)}`}>
+                  {evaluation.verdict}
+                </span>
               </div>
 
-              {/* Overall Score Box */}
-              <div className="my-4 p-4 rounded-2xl bg-gradient-to-r from-dark-elevated to-dark-card border border-dark-border flex items-center justify-between">
+              {/* Score Box */}
+              <div className="my-3.5 p-3 rounded-lg bg-gray-50 border border-gray-200 flex items-center justify-between">
                 <div>
-                  <span className="text-[10px] text-dark-muted uppercase font-bold tracking-wider block">Overall Rating</span>
-                  <p className="text-xs text-gray-300 mt-0.5">Performance Score</p>
+                  <span className="text-xs text-gray-500 font-medium block">Overall Score</span>
+                  <p className="text-xs text-gray-800 font-semibold">Technical Performance</p>
                 </div>
-                <div className="flex items-baseline gap-1 bg-dark-bg/90 px-4 py-2 rounded-xl border border-brand-500/30 shadow-inner">
-                  <span className="text-2xl sm:text-3xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-brand-300 to-accent-cyan">
+                <div className="flex items-baseline gap-1 bg-white px-3 py-1 rounded-md border border-gray-200">
+                  <span className="text-2xl font-bold text-gray-900">
                     {evaluation.rating}
                   </span>
-                  <span className="text-xs font-semibold text-dark-muted">/ 10</span>
+                  <span className="text-xs text-gray-400">/ 10</span>
                 </div>
               </div>
 
-              {/* Feedback Summary Paragraph */}
+              {/* Feedback Summary */}
               {evaluation.summary && (
-                <div className="mb-4 p-4 rounded-2xl bg-dark-elevated/80 border border-dark-border">
-                  <h4 className="text-[11px] font-bold text-brand-300 uppercase tracking-wider mb-1.5 flex items-center gap-1.5">
-                    <Sparkles className="w-3.5 h-3.5" />
-                    Performance Feedback
+                <div className="mb-3.5 p-3 rounded-lg bg-gray-50 border border-gray-200">
+                  <h4 className="text-xs font-semibold text-gray-800 mb-1">
+                    Feedback Summary
                   </h4>
-                  <p className="text-xs text-gray-200 leading-relaxed">
+                  <p className="text-xs text-gray-600 leading-relaxed">
                     {evaluation.summary}
                   </p>
                 </div>
               )}
 
               {/* Strengths & Improvements */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3.5">
                 {evaluation.strengths && evaluation.strengths.length > 0 && (
-                  <div className="p-3.5 rounded-2xl bg-emerald-500/5 border border-emerald-500/20">
-                    <span className="text-[10px] font-bold text-emerald-400 uppercase tracking-wider block mb-2 flex items-center gap-1">
-                      <Check className="w-3.5 h-3.5" /> Key Strengths
+                  <div className="p-3 rounded-lg bg-emerald-50 border border-emerald-200">
+                    <span className="text-xs font-semibold text-emerald-800 block mb-1">
+                      Strengths
                     </span>
-                    <ul className="space-y-1.5 text-[11px] text-gray-300">
+                    <ul className="space-y-1 text-xs text-emerald-950">
                       {evaluation.strengths.map((s, idx) => (
-                        <li key={idx} className="flex items-start gap-1.5">
-                          <span className="text-emerald-400 mt-0.5">•</span>
+                        <li key={idx} className="flex items-start gap-1">
+                          <span className="text-emerald-600 font-bold">•</span>
                           <span>{s}</span>
                         </li>
                       ))}
@@ -525,14 +485,14 @@ export const InterviewPage = () => {
                 )}
 
                 {evaluation.improvements && evaluation.improvements.length > 0 && (
-                  <div className="p-3.5 rounded-2xl bg-amber-500/5 border border-amber-500/20">
-                    <span className="text-[10px] font-bold text-amber-400 uppercase tracking-wider block mb-2 flex items-center gap-1">
-                      <TrendingUp className="w-3.5 h-3.5" /> Focus Areas
+                  <div className="p-3 rounded-lg bg-amber-50 border border-amber-200">
+                    <span className="text-xs font-semibold text-amber-800 block mb-1">
+                      Things to Practice
                     </span>
-                    <ul className="space-y-1.5 text-[11px] text-gray-300">
+                    <ul className="space-y-1 text-xs text-amber-950">
                       {evaluation.improvements.map((imp, idx) => (
-                        <li key={idx} className="flex items-start gap-1.5">
-                          <span className="text-amber-400 mt-0.5">•</span>
+                        <li key={idx} className="flex items-start gap-1">
+                          <span className="text-amber-600 font-bold">•</span>
                           <span>{imp}</span>
                         </li>
                       ))}
@@ -542,65 +502,79 @@ export const InterviewPage = () => {
               </div>
 
               {/* Session Stats Mini Bar */}
-              <div className="grid grid-cols-2 gap-2.5 mb-5 text-center text-xs">
-                <div className="glass-card rounded-xl py-2 px-3">
-                  <span className="text-[10px] text-dark-muted font-bold uppercase block">Duration</span>
-                  <span className="font-mono font-bold text-white">{formatTimer(elapsedSeconds)}</span>
+              <div className="grid grid-cols-2 gap-2 mb-4 text-center text-xs">
+                <div className="p-2 rounded-lg bg-gray-50 border border-gray-200">
+                  <span className="text-[10px] text-gray-500 block">Duration</span>
+                  <span className="font-semibold text-gray-900">{formatTimer(elapsedSeconds)}</span>
                 </div>
-                <div className="glass-card rounded-xl py-2 px-3">
-                  <span className="text-[10px] text-dark-muted font-bold uppercase block">Questions Answered</span>
-                  <span className="font-mono font-bold text-white">{messages.filter(m => m.role === 'candidate').length} Turns</span>
+                <div className="p-2 rounded-lg bg-gray-50 border border-gray-200">
+                  <span className="text-[10px] text-gray-500 block">Answers Given</span>
+                  <span className="font-semibold text-gray-900">{messages.filter(m => m.role === 'candidate').length} Turns</span>
                 </div>
               </div>
 
-              {/* Action Button */}
-              <button
-                onClick={() => navigate('/companies')}
-                className="w-full py-3 rounded-xl bg-brand-500 hover:bg-brand-400 text-dark-bg font-bold text-xs shadow-lg shadow-brand-500/20 flex items-center justify-center gap-2 transition-all hover:scale-[1.01]"
-              >
-                <span>Return to Target Companies</span>
-                <ArrowRight className="w-4 h-4" />
-              </button>
+              {/* Action Buttons */}
+              <div className="space-y-2">
+                <button
+                  onClick={() => navigate(`/interview/${id}/report?print=true`)}
+                  className="w-full py-2.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-medium text-xs shadow-xs flex items-center justify-center gap-1.5 transition-colors"
+                >
+                  <Printer className="w-4 h-4" />
+                  <span>Print / Save PDF Report</span>
+                </button>
+
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    onClick={() => navigate(`/interview/${id}/report`)}
+                    className="py-2 px-3 rounded-lg bg-white hover:bg-gray-50 text-gray-700 font-medium text-xs border border-gray-200 flex items-center justify-center gap-1.5 transition-colors"
+                  >
+                    <FileText className="w-3.5 h-3.5 text-gray-500" />
+                    <span>View Report</span>
+                  </button>
+
+                  <button
+                    onClick={() => navigate('/companies')}
+                    className="py-2 px-3 rounded-lg bg-white hover:bg-gray-50 text-gray-700 font-medium text-xs border border-gray-200 flex items-center justify-center gap-1.5 transition-colors"
+                  >
+                    <span>Dashboard</span>
+                    <ArrowRight className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              </div>
             </div>
           ) : (
-            <div className="glass-panel rounded-3xl p-8 max-w-md w-full text-center border border-dark-border shadow-2xl animate-in zoom-in-95">
-              <div className="w-14 h-14 rounded-2xl bg-brand-500/15 border border-brand-500/30 flex items-center justify-center text-brand-400 mx-auto mb-4">
-                <CheckCircle className="w-8 h-8" />
-              </div>
-
-              <h3 className="text-xl font-bold text-white mb-1">Interview Completed</h3>
-              <p className="text-xs text-dark-muted mb-4">
-                You practiced with <strong>{compName}</strong> across {messages.length} conversational turns.
+            <div className="bg-white rounded-xl p-6 max-w-sm w-full text-center border border-gray-200 shadow-xl">
+              <h3 className="text-base font-bold text-gray-900 mb-1">Interview Finished</h3>
+              <p className="text-xs text-gray-500 mb-4">
+                Completed session with <strong>{compName}</strong> across {messages.length} messages.
               </p>
 
               {evaluationError && (
-                <div className="p-3 mb-4 rounded-xl bg-accent-rose/10 border border-accent-rose/30 text-[11px] text-rose-300">
+                <div className="p-2.5 mb-3 rounded-lg bg-red-50 border border-red-200 text-xs text-red-700">
                   {evaluationError}
                 </div>
               )}
 
-              <div className="grid grid-cols-2 gap-3 mb-6">
-                <div className="glass-card rounded-xl p-3 text-center">
-                  <span className="text-[10px] text-dark-muted font-bold uppercase block">Duration</span>
-                  <span className="text-sm font-mono font-bold text-white">{formatTimer(elapsedSeconds)}</span>
-                </div>
-                <div className="glass-card rounded-xl p-3 text-center">
-                  <span className="text-[10px] text-dark-muted font-bold uppercase block">Total Turns</span>
-                  <span className="text-sm font-mono font-bold text-white">{messages.length}</span>
-                </div>
-              </div>
+              <div className="space-y-2">
+                <button
+                  onClick={() => navigate(`/interview/${id}/report`)}
+                  className="w-full py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-medium text-xs flex items-center justify-center gap-1.5 transition-colors"
+                >
+                  <FileText className="w-4 h-4" />
+                  <span>View Transcript Report</span>
+                </button>
 
-              <button
-                onClick={() => navigate('/companies')}
-                className="w-full py-3 rounded-xl bg-brand-500 hover:bg-brand-400 text-dark-bg font-bold text-xs shadow-lg shadow-brand-500/20 transition-all"
-              >
-                Return to Companies Dashboard
-              </button>
+                <button
+                  onClick={() => navigate('/companies')}
+                  className="w-full py-2 rounded-lg bg-white hover:bg-gray-50 text-gray-700 font-medium text-xs border border-gray-200 transition-colors"
+                >
+                  Return to Companies
+                </button>
+              </div>
             </div>
           )}
         </div>
       )}
-
     </div>
   );
 };

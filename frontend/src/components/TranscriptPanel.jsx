@@ -1,12 +1,13 @@
 import React, { useEffect, useRef } from 'react';
-import { User, Sparkles, MessageSquare } from 'lucide-react';
+import { MessageSquare, User } from 'lucide-react';
 
 export const TranscriptPanel = ({ messages = [], interimTranscript = '', companyName = 'Interviewer' }) => {
-  const bottomRef = useRef(null);
+  const scrollContainerRef = useRef(null);
 
-  // Auto-scroll to bottom on new messages
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+    if (scrollContainerRef.current) {
+      scrollContainerRef.current.scrollTop = scrollContainerRef.current.scrollHeight;
+    }
   }, [messages, interimTranscript]);
 
   const formatTime = (ts) => {
@@ -20,24 +21,23 @@ export const TranscriptPanel = ({ messages = [], interimTranscript = '', company
   };
 
   return (
-    <div className="flex flex-col h-full bg-dark-card/60 backdrop-blur-md border border-dark-border rounded-2xl overflow-hidden shadow-xl">
+    <div className="flex flex-col h-full bg-white border border-gray-200 rounded-xl overflow-hidden shadow-xs">
       {/* Header */}
-      <div className="px-5 py-3.5 border-b border-dark-border flex items-center justify-between bg-dark-bg/40">
+      <div className="px-4 py-3 border-b border-gray-200 flex items-center justify-between bg-gray-50 shrink-0">
         <div className="flex items-center gap-2">
-          <MessageSquare className="w-4 h-4 text-brand-400" />
-          <h3 className="text-xs font-bold text-white uppercase tracking-wider">Live Transcript</h3>
+          <MessageSquare className="w-4 h-4 text-gray-500" />
+          <h3 className="text-xs font-bold text-gray-800">Transcript</h3>
         </div>
-        <span className="text-[11px] font-mono text-dark-muted px-2 py-0.5 rounded bg-dark-elevated border border-dark-border">
-          {messages.length} {messages.length === 1 ? 'turn' : 'turns'}
+        <span className="text-[11px] text-gray-500 font-medium">
+          {messages.length} {messages.length === 1 ? 'message' : 'messages'}
         </span>
       </div>
 
-      {/* Message List */}
-      <div className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-4">
+      {/* Message Feed */}
+      <div ref={scrollContainerRef} className="flex-1 overflow-y-auto p-4 space-y-3">
         {messages.length === 0 ? (
-          <div className="h-full flex flex-col items-center justify-center text-center text-dark-muted py-12">
-            <Sparkles className="w-8 h-8 text-dark-muted/40 mb-2 animate-pulse" />
-            <p className="text-xs">Connecting with {companyName} AI...</p>
+          <div className="h-full flex flex-col items-center justify-center text-center text-gray-400 py-10">
+            <p className="text-xs">Interview is starting...</p>
           </div>
         ) : (
           messages.map((msg, idx) => {
@@ -45,28 +45,28 @@ export const TranscriptPanel = ({ messages = [], interimTranscript = '', company
             return (
               <div
                 key={idx}
-                className={`flex gap-3 text-left ${isAI ? 'justify-start' : 'justify-end'}`}
+                className={`flex gap-2 text-left ${isAI ? 'justify-start' : 'justify-end'}`}
               >
                 {/* AI Avatar */}
                 {isAI && (
-                  <div className="w-8 h-8 rounded-xl bg-brand-500/10 border border-brand-500/30 flex items-center justify-center text-brand-400 shrink-0 mt-0.5">
-                    <Sparkles className="w-4 h-4" />
+                  <div className="w-6 h-6 rounded bg-gray-200 text-gray-700 font-bold text-[10px] flex items-center justify-center shrink-0 mt-0.5">
+                    {companyName[0] || 'AI'}
                   </div>
                 )}
 
                 {/* Message Bubble */}
                 <div
-                  className={`max-w-[85%] sm:max-w-[80%] rounded-2xl p-4 text-xs leading-relaxed ${
+                  className={`max-w-[85%] rounded-lg p-3 text-xs leading-relaxed break-words overflow-hidden ${
                     isAI
-                      ? 'bg-dark-elevated text-gray-200 border border-dark-border'
-                      : 'bg-brand-500 text-dark-bg font-medium shadow-md shadow-brand-500/15'
+                      ? 'bg-gray-100 text-gray-900'
+                      : 'bg-indigo-600 text-white'
                   }`}
                 >
-                  <div className="flex items-center justify-between gap-3 mb-1.5 opacity-70">
-                    <span className="font-bold text-[10px] uppercase tracking-wider">
+                  <div className={`flex items-center justify-between gap-3 mb-1 text-[10px] ${isAI ? 'text-gray-500' : 'text-indigo-200'}`}>
+                    <span className="font-semibold">
                       {isAI ? companyName : 'You'}
                     </span>
-                    <span className="text-[10px] font-mono">
+                    <span className="opacity-80">
                       {formatTime(msg.timestamp)}
                     </span>
                   </div>
@@ -75,8 +75,8 @@ export const TranscriptPanel = ({ messages = [], interimTranscript = '', company
 
                 {/* Candidate Avatar */}
                 {!isAI && (
-                  <div className="w-8 h-8 rounded-xl bg-accent-cyan/15 border border-accent-cyan/30 flex items-center justify-center text-accent-cyan shrink-0 mt-0.5">
-                    <User className="w-4 h-4" />
+                  <div className="w-6 h-6 rounded bg-indigo-100 text-indigo-700 font-bold text-[10px] flex items-center justify-center shrink-0 mt-0.5">
+                    <User className="w-3.5 h-3.5" />
                   </div>
                 )}
               </div>
@@ -84,22 +84,20 @@ export const TranscriptPanel = ({ messages = [], interimTranscript = '', company
           })
         )}
 
-        {/* Interim live speech recognition streaming */}
+        {/* Live speech preview while speaking */}
         {interimTranscript && (
-          <div className="flex gap-3 justify-end text-left opacity-80 animate-pulse">
-            <div className="max-w-[80%] rounded-2xl p-3.5 text-xs bg-dark-elevated/80 border border-accent-cyan/40 text-accent-cyan italic">
-              <span className="text-[10px] font-bold uppercase tracking-wider block mb-1 opacity-70">
-                You (speaking...)
+          <div className="flex gap-2 justify-end text-left opacity-90">
+            <div className="max-w-[85%] rounded-lg p-2.5 text-xs bg-indigo-50 border border-indigo-200 text-indigo-900 italic">
+              <span className="text-[10px] font-semibold text-indigo-600 block mb-0.5">
+                Listening...
               </span>
               "{interimTranscript}"
             </div>
-            <div className="w-8 h-8 rounded-xl bg-accent-cyan/20 border border-accent-cyan/40 flex items-center justify-center text-accent-cyan shrink-0 mt-0.5">
-              <User className="w-4 h-4 animate-ping" />
+            <div className="w-6 h-6 rounded bg-indigo-100 text-indigo-700 flex items-center justify-center shrink-0 mt-0.5">
+              <User className="w-3.5 h-3.5 animate-pulse" />
             </div>
           </div>
         )}
-
-        <div ref={bottomRef} />
       </div>
     </div>
   );

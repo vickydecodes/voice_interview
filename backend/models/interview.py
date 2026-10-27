@@ -39,6 +39,7 @@ class InterviewInDB(BaseModel):
     user_id: str
     company_id: str
     company_snapshot: Dict[str, Any]
+    candidate_snapshot: Optional[Dict[str, Any]] = None
     messages: List[InterviewMessage] = Field(default_factory=list)
     status: Literal["active", "completed"] = "active"
     evaluation: Optional[InterviewEvaluation] = None

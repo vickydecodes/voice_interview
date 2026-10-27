@@ -1,138 +1,66 @@
 import React from 'react';
-import { Volume2, Mic, Cpu, Radio } from 'lucide-react';
+import { Volume2, Mic, Loader2 } from 'lucide-react';
 
-export const AudioWaveform = ({ state = 'idle', companyName = 'AI Interviewer' }) => {
+export const AudioWaveform = ({ state = 'idle', companyName = 'Interviewer' }) => {
   // state: 'speaking' | 'listening' | 'thinking' | 'idle'
 
-  const getStateConfig = () => {
-    switch (state) {
-      case 'speaking':
-        return {
-          label: `${companyName} is Speaking`,
-          subtext: 'Listen carefully to the question...',
-          ringColor: 'border-brand-500/40',
-          glowColor: 'rgba(16, 185, 129, 0.25)',
-          badgeColor: 'bg-brand-500/10 text-brand-400 border-brand-500/30',
-          icon: Volume2,
-          iconColor: 'text-brand-400',
-        };
-      case 'listening':
-        return {
-          label: 'Listening to You',
-          subtext: 'Speak naturally into your microphone',
-          ringColor: 'border-accent-cyan/50',
-          glowColor: 'rgba(6, 182, 212, 0.3)',
-          badgeColor: 'bg-accent-cyan/10 text-accent-cyan border-accent-cyan/30',
-          icon: Mic,
-          iconColor: 'text-accent-cyan',
-        };
-      case 'thinking':
-        return {
-          label: 'AI is Analyzing Answer...',
-          subtext: 'Evaluating response against company rubric',
-          ringColor: 'border-accent-amber/50',
-          glowColor: 'rgba(245, 158, 11, 0.25)',
-          badgeColor: 'bg-accent-amber/10 text-accent-amber border-accent-amber/30',
-          icon: Cpu,
-          iconColor: 'text-accent-amber',
-        };
-      default:
-        return {
-          label: 'Ready',
-          subtext: 'Click the mic or speak to continue',
-          ringColor: 'border-dark-border',
-          glowColor: 'rgba(99, 102, 241, 0.15)',
-          badgeColor: 'bg-dark-elevated text-dark-muted border-dark-border',
-          icon: Radio,
-          iconColor: 'text-dark-muted',
-        };
-    }
-  };
-
-  const config = getStateConfig();
-  const Icon = config.icon;
-
   return (
-    <div className="flex flex-col items-center justify-center p-8 relative">
-      {/* Outer ambient glow */}
-      <div
-        className="absolute w-72 h-72 rounded-full blur-3xl transition-all duration-700 pointer-events-none"
-        style={{ backgroundColor: config.glowColor }}
-      />
+    <div className="flex flex-col items-center justify-center py-4">
+      {/* Company Avatar / Call Status */}
+      <div className="relative mb-4">
+        <div className={`w-20 h-20 rounded-full flex items-center justify-center font-bold text-2xl transition-all ${
+          state === 'speaking'
+            ? 'bg-indigo-100 text-indigo-700 ring-4 ring-indigo-200'
+            : state === 'listening'
+            ? 'bg-red-100 text-red-700 ring-4 ring-red-200'
+            : state === 'thinking'
+            ? 'bg-amber-100 text-amber-700 ring-4 ring-amber-200'
+            : 'bg-gray-100 text-gray-700 border-2 border-gray-200'
+        }`}>
+          {companyName ? companyName[0] : 'I'}
+        </div>
 
-      {/* Main Avatar Container */}
-      <div className="relative flex items-center justify-center mb-6">
-        {/* Pulsing Outer Rings */}
-        <div
-          className={`absolute w-44 h-44 rounded-full border ${config.ringColor} ${
-            state === 'listening' || state === 'speaking' ? 'animate-pulse' : 'opacity-40'
-          }`}
-        />
-        <div
-          className={`absolute w-52 h-52 rounded-full border border-dashed ${config.ringColor} ${
-            state === 'thinking' ? 'animate-spin duration-1000' : 'opacity-20'
-          }`}
-        />
-
-        {/* Core AI Orb */}
-        <div
-          className={`w-36 h-36 rounded-full glass-panel flex flex-col items-center justify-center shadow-2xl relative z-10 border transition-all duration-500 ${
-            state === 'speaking'
-              ? 'border-brand-500/60 shadow-brand-500/30'
-              : state === 'listening'
-              ? 'border-accent-cyan/60 shadow-accent-cyan/30'
-              : state === 'thinking'
-              ? 'border-accent-amber/60 shadow-accent-amber/30'
-              : 'border-dark-border'
-          }`}
-        >
-          {state === 'speaking' ? (
-            /* Animated Waveform Bars */
-            <div className="flex items-center gap-1.5 h-12">
-              <span className="w-1.5 bg-brand-400 rounded-full animate-wave-bar" style={{ animationDelay: '0.1s' }} />
-              <span className="w-1.5 bg-brand-400 rounded-full animate-wave-bar" style={{ animationDelay: '0.4s' }} />
-              <span className="w-1.5 bg-accent-cyan rounded-full animate-wave-bar" style={{ animationDelay: '0.2s' }} />
-              <span className="w-1.5 bg-brand-400 rounded-full animate-wave-bar" style={{ animationDelay: '0.5s' }} />
-              <span className="w-1.5 bg-brand-400 rounded-full animate-wave-bar" style={{ animationDelay: '0.3s' }} />
-            </div>
-          ) : state === 'listening' ? (
-            /* Microphone Listening Indicator */
-            <div className="relative flex items-center justify-center">
-              <div className="absolute w-14 h-14 rounded-full bg-accent-cyan/20 animate-ping" />
-              <Mic className="w-10 h-10 text-accent-cyan relative z-10" />
-            </div>
-          ) : state === 'thinking' ? (
-            /* Thinking Spinner */
-            <div className="flex flex-col items-center justify-center">
-              <Cpu className="w-10 h-10 text-accent-amber animate-pulse" />
-            </div>
-          ) : (
-            /* Idle Logo State */
-            <Icon className={`w-10 h-10 ${config.iconColor}`} />
-          )}
+        {/* Small badge icon */}
+        <div className="absolute -bottom-1 -right-1 w-7 h-7 rounded-full bg-white border border-gray-200 shadow-xs flex items-center justify-center text-gray-700">
+          {state === 'speaking' && <Volume2 className="w-3.5 h-3.5 text-indigo-600 animate-pulse" />}
+          {state === 'listening' && <Mic className="w-3.5 h-3.5 text-red-600 animate-pulse" />}
+          {state === 'thinking' && <Loader2 className="w-3.5 h-3.5 text-amber-600 animate-spin" />}
+          {state === 'idle' && <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" />}
         </div>
       </div>
 
-      {/* Status Pill */}
-      <div className="flex flex-col items-center text-center z-10">
-        <div
-          className={`inline-flex items-center gap-2 px-3.5 py-1 rounded-full text-xs font-semibold border ${config.badgeColor} mb-2 shadow-sm`}
-        >
-          <span
-            className={`w-2 h-2 rounded-full ${
-              state === 'speaking'
-                ? 'bg-brand-400 animate-ping'
-                : state === 'listening'
-                ? 'bg-accent-cyan animate-pulse'
-                : state === 'thinking'
-                ? 'bg-accent-amber animate-spin'
-                : 'bg-dark-muted'
-            }`}
-          />
-          {config.label}
+      {/* Status Heading & Instructions */}
+      <h3 className="text-base font-semibold text-gray-900 mb-0.5">
+        {state === 'speaking' && `${companyName} is speaking`}
+        {state === 'listening' && 'Listening to you...'}
+        {state === 'thinking' && 'Processing your response...'}
+        {state === 'idle' && 'Your Turn to Speak'}
+      </h3>
+
+      <p className="text-xs text-gray-500 text-center max-w-xs">
+        {state === 'speaking' && 'Listen carefully to the question before replying.'}
+        {state === 'listening' && 'Speak your answer clearly into your microphone.'}
+        {state === 'thinking' && 'Analyzing your solution and trade-offs...'}
+        {state === 'idle' && 'Click the microphone button below to record your answer.'}
+      </p>
+
+      {/* Simple, gentle sound wave dots */}
+      {(state === 'speaking' || state === 'listening') && (
+        <div className="flex items-center gap-1 mt-4">
+          {[1, 2, 3, 4, 5].map((i) => (
+            <span
+              key={i}
+              className={`w-1.5 rounded-full animate-bounce ${
+                state === 'speaking' ? 'bg-indigo-600' : 'bg-red-600'
+              }`}
+              style={{
+                height: `${12 + (i % 3) * 8}px`,
+                animationDelay: `${i * 0.15}s`,
+              }}
+            />
+          ))}
         </div>
-        <p className="text-xs text-dark-muted font-normal max-w-xs">{config.subtext}</p>
-      </div>
+      )}
     </div>
   );
 };

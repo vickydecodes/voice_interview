@@ -301,6 +301,12 @@ class AIService:
             return self._mock_generate_json(system, user, schema_hint)
 
         chosen_model = model or self.default_model
+        fallback_models = [chosen_model]
+        for fb in getattr(settings, "OPENROUTER_FALLBACK_MODELS", []):
+            if fb not in fallback_models:
+                fallback_models.append(fb)
+        fallback_models = fallback_models[:3]
+
         system_content = system
         if schema_hint:
             system_content += f"\n\nYou MUST return valid JSON adhering strictly to this schema or structure:\n{schema_hint}\nDo NOT wrap with markdown fences or other explanations."
@@ -312,6 +318,7 @@ class AIService:
 
         payload = {
             "model": chosen_model,
+            "models": fallback_models,
             "messages": messages,
             "response_format": {"type": "json_object"},
             "temperature": 0.2,
@@ -363,8 +370,15 @@ class AIService:
             return self._mock_chat(messages)
 
         chosen_model = model or self.interview_model
+        fallback_models = [chosen_model]
+        for fb in getattr(settings, "OPENROUTER_FALLBACK_MODELS", []):
+            if fb not in fallback_models:
+                fallback_models.append(fb)
+        fallback_models = fallback_models[:3]
+
         payload = {
             "model": chosen_model,
+            "models": fallback_models,
             "messages": messages,
             "temperature": 0.7,
         }

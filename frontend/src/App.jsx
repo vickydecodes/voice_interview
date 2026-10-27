@@ -6,12 +6,13 @@ import ProtectedRoute from './components/ProtectedRoute';
 import LandingPage from './pages/LandingPage';
 import CompaniesPage from './pages/CompaniesPage';
 import InterviewPage from './pages/InterviewPage';
+import InterviewReportPage from './pages/InterviewReportPage';
 
 export function App() {
   return (
     <BrowserRouter>
       <AuthProvider>
-        <div className="min-h-screen bg-dark-bg text-dark-text flex flex-col font-sans selection:bg-brand-500 selection:text-dark-bg">
+        <div className="min-h-screen bg-slate-50 text-slate-900 flex flex-col font-sans selection:bg-slate-900 selection:text-white">
           <Navbar />
           <main className="flex-1 flex flex-col">
             <Routes>
@@ -33,6 +34,14 @@ export function App() {
                 element={
                   <ProtectedRoute>
                     <InterviewPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/interview/:id/report"
+                element={
+                  <ProtectedRoute>
+                    <InterviewReportPage />
                   </ProtectedRoute>
                 }
               />

@@ -3,15 +3,14 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { authApi } from '../api/client';
 import {
-  UploadCloud,
+  Upload,
   FileText,
-  Sparkles,
   AlertCircle,
   ArrowRight,
-  CheckCircle2,
-  Cpu,
-  Layers,
+  CheckCircle,
+  Briefcase,
   Mic,
+  Award,
 } from 'lucide-react';
 
 export const LandingPage = () => {
@@ -21,7 +20,7 @@ export const LandingPage = () => {
   const [file, setFile] = useState(null);
   const [isDragging, setIsDragging] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const [loadingStage, setLoadingStage] = useState(1);
+  const [loadingText, setLoadingText] = useState('Parsing resume...');
   const [error, setError] = useState(null);
 
   const fileInputRef = useRef(null);
@@ -54,7 +53,7 @@ export const LandingPage = () => {
     setError(null);
     const name = selectedFile.name.toLowerCase();
     if (!name.endsWith('.pdf') && !name.endsWith('.docx')) {
-      setError('Please upload a PDF (.pdf) or Microsoft Word (.docx) document.');
+      setError('Please upload a PDF (.pdf) or Word (.docx) document.');
       return;
     }
     if (selectedFile.size > 15 * 1024 * 1024) {
@@ -72,25 +71,25 @@ export const LandingPage = () => {
 
     setIsLoading(true);
     setError(null);
-    setLoadingStage(1);
+    setLoadingText('Extracting resume text...');
 
-    const stageTimer1 = setTimeout(() => setLoadingStage(2), 2000);
-    const stageTimer2 = setTimeout(() => setLoadingStage(3), 5500);
+    const t1 = setTimeout(() => setLoadingText('Analyzing projects and tech stack...'), 2000);
+    const t2 = setTimeout(() => setLoadingText('Setting up candidate profile...'), 5000);
 
     try {
       const authResponse = await authApi.uploadResume(file);
-      clearTimeout(stageTimer1);
-      clearTimeout(stageTimer2);
+      clearTimeout(t1);
+      clearTimeout(t2);
       login(authResponse);
       navigate('/companies');
     } catch (err) {
-      clearTimeout(stageTimer1);
-      clearTimeout(stageTimer2);
+      clearTimeout(t1);
+      clearTimeout(t2);
       console.error('Resume upload error:', err);
       const msg =
         err.response?.data?.detail ||
         err.message ||
-        'Failed to parse resume. Please check file format and try again.';
+        'Failed to parse resume. Please check the file and try again.';
       setError(msg);
     } finally {
       setIsLoading(false);
@@ -98,56 +97,48 @@ export const LandingPage = () => {
   };
 
   return (
-    <div className="min-h-[calc(100vh-4rem)] flex flex-col justify-center items-center py-12 px-4 sm:px-6 lg:px-8 relative overflow-hidden">
-      {/* Background radial glow */}
-      <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[400px] bg-brand-500/10 blur-[130px] rounded-full pointer-events-none" />
-
-      <div className="max-w-2xl w-full text-center relative z-10">
-        {/* Existing Session pill if user is authenticated */}
+    <div className="min-h-[calc(100vh-3.5rem)] flex flex-col justify-center items-center py-10 px-4">
+      <div className="max-w-xl w-full text-center">
+        {/* Active Session Notification */}
         {isAuthenticated && user && (
-          <div className="mb-6 inline-flex items-center gap-2.5 px-4 py-1.5 rounded-full bg-brand-500/10 border border-brand-500/30 text-brand-300 text-xs font-medium">
-            <span>Signed in as <strong>{user.name}</strong></span>
+          <div className="mb-6 inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-indigo-50 border border-indigo-200 text-indigo-700 text-xs">
+            <span>Logged in as <strong>{user.name}</strong></span>
             <button
               onClick={() => navigate('/companies')}
-              className="underline hover:text-white font-semibold flex items-center gap-1 ml-1"
+              className="font-bold hover:underline flex items-center gap-1 ml-1"
             >
               Go to Companies <ArrowRight className="w-3 h-3" />
             </button>
           </div>
         )}
 
-        {/* Hero Title */}
-        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-dark-elevated border border-dark-border text-brand-400 text-xs font-semibold mb-4 shadow-sm">
-          <Sparkles className="w-3.5 h-3.5" />
-          <span>Zero Signups. Your Resume is Your Identity.</span>
-        </div>
-
-        <h1 className="text-3xl sm:text-5xl font-extrabold text-white tracking-tight mb-4 leading-tight">
-          Calibrate Your Skills with <br className="hidden sm:inline" />
-          <span className="text-transparent bg-clip-text bg-gradient-to-r from-brand-400 via-accent-cyan to-brand-500">
-            Real Voice AI Interviews
-          </span>
+        {/* Hero Title & Subtitle */}
+        <h1 className="text-3xl sm:text-4xl font-bold text-gray-900 tracking-tight mb-2">
+          Voice Mock Interviews for Developers
         </h1>
 
-        <p className="text-sm sm:text-base text-dark-muted max-w-xl mx-auto mb-8 font-normal leading-relaxed">
-          Upload your resume in PDF or DOCX. OpenRouter parses your experience and projects,
-          instantly unlocking tailored voice mock interviews against top tech companies.
+        <p className="text-sm text-gray-600 max-w-md mx-auto mb-8">
+          Upload your resume to get interview questions based on your real projects and tech stack, then answer using your mic.
         </p>
 
         {/* Upload Card */}
-        <div className="glass-panel rounded-3xl p-6 sm:p-8 border border-dark-border shadow-2xl text-left">
+        <div className="bg-white rounded-xl p-6 sm:p-7 border border-gray-200 shadow-sm text-left">
+          <label className="block text-sm font-semibold text-gray-800 mb-2">
+            Upload your resume
+          </label>
+
           {/* Dropzone */}
           <div
             onDragOver={handleDragOver}
             onDragLeave={handleDragLeave}
             onDrop={handleDrop}
             onClick={() => fileInputRef.current?.click()}
-            className={`border-2 border-dashed rounded-2xl p-8 sm:p-10 flex flex-col items-center justify-center text-center cursor-pointer transition-all duration-200 ${
+            className={`border-2 border-dashed rounded-lg p-6 sm:p-8 flex flex-col items-center justify-center text-center cursor-pointer transition-colors ${
               isDragging
-                ? 'border-brand-400 bg-brand-500/10 scale-[1.01]'
+                ? 'border-indigo-600 bg-indigo-50/50'
                 : file
-                ? 'border-brand-500/40 bg-dark-elevated/80'
-                : 'border-dark-border/80 hover:border-brand-500/40 hover:bg-dark-elevated/40'
+                ? 'border-indigo-300 bg-indigo-50/30'
+                : 'border-gray-300 hover:border-gray-400 bg-gray-50/50'
             }`}
           >
             <input
@@ -160,27 +151,27 @@ export const LandingPage = () => {
 
             {file ? (
               <div className="flex flex-col items-center">
-                <div className="w-14 h-14 rounded-2xl bg-brand-500/15 border border-brand-500/30 flex items-center justify-center text-brand-400 mb-3 shadow-lg">
-                  <FileText className="w-7 h-7" />
+                <div className="w-10 h-10 rounded-lg bg-indigo-100 text-indigo-600 flex items-center justify-center mb-2">
+                  <FileText className="w-5 h-5" />
                 </div>
-                <h4 className="text-sm font-bold text-white mb-1 truncate max-w-xs">{file.name}</h4>
-                <p className="text-xs text-dark-muted mb-3">
-                  {(file.size / 1024 / 1024).toFixed(2)} MB • Ready to parse
+                <p className="text-sm font-medium text-gray-900 truncate max-w-xs">{file.name}</p>
+                <p className="text-xs text-gray-500 mb-2">
+                  {(file.size / 1024 / 1024).toFixed(2)} MB
                 </p>
-                <span className="text-xs font-semibold text-brand-400 hover:text-brand-300 underline">
-                  Click to choose a different file
+                <span className="text-xs text-indigo-600 font-medium hover:underline">
+                  Change file
                 </span>
               </div>
             ) : (
               <div className="flex flex-col items-center">
-                <div className="w-14 h-14 rounded-2xl bg-dark-elevated border border-dark-border flex items-center justify-center text-dark-muted mb-3 group-hover:text-brand-400 transition-colors">
-                  <UploadCloud className="w-7 h-7" />
+                <div className="w-10 h-10 rounded-lg bg-gray-100 text-gray-600 flex items-center justify-center mb-2">
+                  <Upload className="w-5 h-5" />
                 </div>
-                <h4 className="text-sm font-bold text-white mb-1">
-                  Drag and drop your resume here, or <span className="text-brand-400">browse</span>
-                </h4>
-                <p className="text-xs text-dark-muted font-normal">
-                  Supports PDF or DOCX (Max 15MB)
+                <p className="text-sm font-medium text-gray-800 mb-1">
+                  Click to browse, or drag & drop your resume here
+                </p>
+                <p className="text-xs text-gray-500">
+                  Accepts PDF or Word (.docx), up to 15MB
                 </p>
               </div>
             )}
@@ -188,103 +179,66 @@ export const LandingPage = () => {
 
           {/* Error Message */}
           {error && (
-            <div className="mt-4 p-4 rounded-xl bg-accent-rose/10 border border-accent-rose/30 flex items-start gap-3 text-xs text-rose-300">
-              <AlertCircle className="w-4 h-4 text-accent-rose shrink-0 mt-0.5" />
-              <div className="flex-1">
-                <p className="font-semibold mb-1">Failed to process resume</p>
-                <p className="opacity-90">{error}</p>
-                <button
-                  type="button"
-                  onClick={handleUpload}
-                  className="mt-2 text-xs font-bold text-rose-200 underline hover:text-white"
-                >
-                  Retry Upload
-                </button>
-              </div>
+            <div className="mt-3 p-3 rounded-lg bg-red-50 border border-red-200 flex items-start gap-2 text-xs text-red-700">
+              <AlertCircle className="w-4 h-4 text-red-500 shrink-0 mt-0.5" />
+              <span>{error}</span>
             </div>
           )}
 
-          {/* Loading Animation & Steps */}
+          {/* Loading status */}
           {isLoading && (
-            <div className="mt-5 p-5 rounded-2xl bg-dark-elevated border border-brand-500/30 space-y-3">
-              <div className="flex items-center justify-between text-xs">
-                <span className="font-semibold text-white flex items-center gap-2">
-                  <span className="w-3.5 h-3.5 border-2 border-brand-400 border-t-transparent rounded-full animate-spin" />
-                  {loadingStage === 1 && 'Extracting text from document...'}
-                  {loadingStage === 2 && 'OpenRouter AI analyzing skills & engineering highlights...'}
-                  {loadingStage === 3 && 'Generating profile & issuing candidate credentials...'}
-                </span>
-                <span className="text-brand-400 font-mono font-bold">{loadingStage * 33}%</span>
-              </div>
-              <div className="w-full bg-dark-border h-2 rounded-full overflow-hidden">
-                <div
-                  className="bg-gradient-to-r from-brand-500 to-accent-cyan h-full rounded-full transition-all duration-700"
-                  style={{ width: `${loadingStage * 33}%` }}
-                />
-              </div>
+            <div className="mt-4 p-3 rounded-lg bg-gray-50 border border-gray-200 flex items-center gap-3">
+              <div className="w-4 h-4 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin shrink-0" />
+              <p className="text-xs text-gray-700 font-medium">{loadingText}</p>
             </div>
           )}
 
-          {/* Submit CTA Button */}
-          <div className="mt-6 flex flex-col sm:flex-row items-center justify-between gap-4">
-            <div className="flex items-center gap-4 text-xs text-dark-muted">
-              <span className="flex items-center gap-1.5">
-                <CheckCircle2 className="w-3.5 h-3.5 text-brand-400" /> Instant Identity
-              </span>
-              <span className="flex items-center gap-1.5">
-                <Mic className="w-3.5 h-3.5 text-accent-cyan" /> Voice-Ready
-              </span>
-            </div>
-
-            <button
-              onClick={handleUpload}
-              disabled={!file || isLoading}
-              className="w-full sm:w-auto px-7 py-3 rounded-xl bg-brand-500 hover:bg-brand-400 text-dark-bg font-extrabold text-xs tracking-wide shadow-xl shadow-brand-500/25 flex items-center justify-center gap-2 transition-all disabled:opacity-40 disabled:cursor-not-allowed hover:scale-[1.02]"
-            >
-              {isLoading ? (
-                <>
-                  <span className="w-3.5 h-3.5 border-2 border-dark-bg border-t-transparent rounded-full animate-spin" />
-                  <span>Parsing Resume...</span>
-                </>
-              ) : (
-                <>
-                  <span>Begin Interview Setup</span>
-                  <ArrowRight className="w-4 h-4" />
-                </>
-              )}
-            </button>
-          </div>
+          {/* Submit Button */}
+          <button
+            onClick={handleUpload}
+            disabled={!file || isLoading}
+            className="w-full mt-4 py-2.5 px-4 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-medium text-sm flex items-center justify-center gap-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-xs"
+          >
+            {isLoading ? (
+              <span>Analyzing resume...</span>
+            ) : (
+              <>
+                <span>Continue to Select Company</span>
+                <ArrowRight className="w-4 h-4" />
+              </>
+            )}
+          </button>
         </div>
 
-        {/* 3 Step Flow Highlights */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-12 text-left">
-          <div className="glass-card rounded-2xl p-5">
-            <div className="w-8 h-8 rounded-lg bg-brand-500/10 border border-brand-500/20 flex items-center justify-center text-brand-400 text-xs font-bold mb-3">
+        {/* 3 Steps Overview */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-8 text-left">
+          <div className="bg-white rounded-lg p-4 border border-gray-200 shadow-xs">
+            <div className="w-7 h-7 rounded-md bg-indigo-50 text-indigo-700 font-bold text-xs flex items-center justify-center mb-2">
               1
             </div>
-            <h4 className="text-xs font-bold text-white mb-1">Upload Resume</h4>
-            <p className="text-[11px] text-dark-muted font-normal leading-relaxed">
-              PDF or DOCX parsed into structured candidate metadata without passwords.
+            <h4 className="text-xs font-semibold text-gray-900 mb-0.5">Upload Resume</h4>
+            <p className="text-xs text-gray-500 leading-normal">
+              Extracts your real projects, skills, and work history.
             </p>
           </div>
 
-          <div className="glass-card rounded-2xl p-5">
-            <div className="w-8 h-8 rounded-lg bg-accent-cyan/10 border border-accent-cyan/20 flex items-center justify-center text-accent-cyan text-xs font-bold mb-3">
+          <div className="bg-white rounded-lg p-4 border border-gray-200 shadow-xs">
+            <div className="w-7 h-7 rounded-md bg-indigo-50 text-indigo-700 font-bold text-xs flex items-center justify-center mb-2">
               2
             </div>
-            <h4 className="text-xs font-bold text-white mb-1">Pick or Scrape Company</h4>
-            <p className="text-[11px] text-dark-muted font-normal leading-relaxed">
-              Select pre-seeded giants or crawl any target company website URL.
+            <h4 className="text-xs font-semibold text-gray-900 mb-0.5">Pick Company</h4>
+            <p className="text-xs text-gray-500 leading-normal">
+              Select Google, Stripe, Netflix or add any company website.
             </p>
           </div>
 
-          <div className="glass-card rounded-2xl p-5">
-            <div className="w-8 h-8 rounded-lg bg-accent-indigo/10 border border-accent-indigo/20 flex items-center justify-center text-accent-indigo text-xs font-bold mb-3">
+          <div className="bg-white rounded-lg p-4 border border-gray-200 shadow-xs">
+            <div className="w-7 h-7 rounded-md bg-indigo-50 text-indigo-700 font-bold text-xs flex items-center justify-center mb-2">
               3
             </div>
-            <h4 className="text-xs font-bold text-white mb-1">Real-Time Voice Call</h4>
-            <p className="text-[11px] text-dark-muted font-normal leading-relaxed">
-              AI speaks and listens naturally via browser Speech APIs, testing your real projects.
+            <h4 className="text-xs font-semibold text-gray-900 mb-0.5">Speak & Learn</h4>
+            <p className="text-xs text-gray-500 leading-normal">
+              Answer questions out loud and get honest scores and feedback.
             </p>
           </div>
         </div>

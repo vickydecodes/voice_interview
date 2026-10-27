@@ -23,9 +23,17 @@ router = APIRouter(prefix="/interviews", tags=["Interviews"])
 logger = logging.getLogger("interviews_router")
 
 
-def _format_interview_doc(doc: dict) -> InterviewInDB:
+def _format_interview_doc(doc: dict, current_user: dict | None = None) -> InterviewInDB:
     doc_copy = doc.copy()
     doc_copy["id"] = str(doc_copy.pop("_id"))
+    if not doc_copy.get("candidate_snapshot") and current_user:
+        parsed_resume = current_user.get("parsed_resume", {})
+        doc_copy["candidate_snapshot"] = {
+            "name": current_user.get("name", "Candidate"),
+            "email": current_user.get("email", ""),
+            "skills": parsed_resume.get("skills", []),
+            "experience": parsed_resume.get("experience", []),
+        }
     return InterviewInDB(**doc_copy)
 
 
@@ -148,11 +156,20 @@ async def create_interview_session(
         "brand_identity": company.get("brand_identity"),
     }
 
+    parsed_resume = current_user.get("parsed_resume", {})
+    candidate_snapshot = {
+        "name": user_name,
+        "email": current_user.get("email", ""),
+        "skills": parsed_resume.get("skills", []),
+        "experience": parsed_resume.get("experience", []),
+    }
+
     interview_doc = {
         "_id": interview_id,
         "user_id": str(current_user["_id"]),
         "company_id": str(company["_id"]),
         "company_snapshot": company_snapshot,
+        "candidate_snapshot": candidate_snapshot,
         "messages": [initial_message.model_dump()],
         "status": "active",
         "created_at": now,
@@ -162,7 +179,7 @@ async def create_interview_session(
     await interviews_col.insert_one(interview_doc)
     logger.info("Created interview session %s for user %s at %s", interview_id, current_user.get("email"), comp_name)
 
-    return _format_interview_doc(interview_doc)
+    return _format_interview_doc(interview_doc, current_user)
 
 
 @router.post("/{interview_id}/turn", response_model=InterviewTurnResponse)
@@ -257,6 +274,17 @@ async def process_interview_turn(
     )
 
 
+@router.get("", response_model=List[InterviewInDB])
+async def list_user_interviews(
+    current_user: dict = Depends(get_current_user),
+):
+    """Lists all past and active interview sessions for the current user."""
+    interviews_col = get_interviews_collection()
+    cursor = interviews_col.find({"user_id": str(current_user["_id"])}).sort("created_at", -1)
+    docs = await cursor.to_list(length=100)
+    return [_format_interview_doc(d, current_user) for d in docs]
+
+
 @router.get("/{interview_id}", response_model=InterviewInDB)
 async def get_interview_session(
     interview_id: str,
@@ -277,7 +305,7 @@ async def get_interview_session(
             detail="You do not have access to this interview session.",
         )
 
-    return _format_interview_doc(interview)
+    return _format_interview_doc(interview, current_user)
 
 
 @router.post("/{interview_id}/complete", response_model=InterviewInDB)
@@ -305,7 +333,7 @@ async def complete_interview_session(
 
     # If already completed with evaluation, return existing record
     if interview.get("status") == "completed" and interview.get("evaluation"):
-        return _format_interview_doc(interview)
+        return _format_interview_doc(interview, current_user)
 
     messages = interview.get("messages", [])
     company = interview.get("company_snapshot", {})
@@ -337,5 +365,5 @@ async def complete_interview_session(
         evaluation_data.get("rating"),
         evaluation_data.get("verdict"),
     )
-    return _format_interview_doc(updated_doc)
+    return _format_interview_doc(updated_doc, current_user)
 
